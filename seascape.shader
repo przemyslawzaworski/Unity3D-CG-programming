@@ -32,12 +32,12 @@ Shader "SEASCAPE"
 			};
 
 			float fract(float x) {
-            	return x - floor(x);
-            }
+            			return x - floor(x);
+            		}
             
-            float2 fract(float2 x) {
-            	return x - floor(x);
-            }
+            		float2 fract(float2 x) {
+            			return x - floor(x);
+            		}
 
 			float hash (float2 p) 
 			{
