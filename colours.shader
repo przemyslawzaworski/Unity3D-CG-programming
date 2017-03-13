@@ -10,38 +10,40 @@ Shader "Colours"
 			CGPROGRAM
 			#pragma vertex vertex_shader
 			#pragma fragment pixel_shader
-			#pragma target 3.0
+			#pragma target 4.0
 
-			static const float n_delta =  0.015625;
-
-			struct v2f
+			struct custom_type
 			{
-				float4 screen_space_vertex : SV_POSITION;
+				float4 vertex : SV_POSITION;
 				float2 uv : TEXCOORD0;
 			};
 
-			float rand(float3 n) { 
+			float noise (float3 n) 
+			{ 
     			return frac(sin(dot(n, float3(95.43583, 93.323197, 94.993431))) * 65536.32);
 			}
 
-			float perlin2(float3 n)
+			float perlin_a (float3 n)
 			{
-    			float3 base = floor(n / n_delta) * n_delta;
-    			float3 dd = float3(n_delta, 0.0, 0.0);
-    			float tl = rand(base + dd.yyy), tr = rand(base + dd.xyy), bl = rand(base + dd.yxy), br = rand(base + dd.xxy);
-    			float3 p = (n - base) / dd.xxx;
-    			float t = lerp(tl, tr, p.x);
-    			float b = lerp(bl, br, p.x);
-    			return lerp(t, b, p.y);
+    			float3 base = floor(n * 64.0) * 0.015625;
+    			float3 dd = float3(0.015625, 0.0, 0.0);
+    			float a = noise(base);
+    			float b = noise(base + dd.xyy);
+    			float c = noise(base + dd.yxy);
+    			float d = noise(base + dd.xxy);
+    			float3 p = (n - base) * 64.0;
+    			float t = lerp(a, b, p.x);
+    			float tt = lerp(c, d, p.x);
+    			return lerp(t, tt, p.y);
 			}
 
-			float perlin3(float3 n)
+			float perlin_b (float3 n)
 			{
-    			float3 base = float3(n.x, n.y, floor(n.z / n_delta) * n_delta);
-    			float3 dd = float3(n_delta, 0.0, 0.0);
-    			float3 p = (n - base) / dd.xxx;
-    			float front = perlin2(base + dd.yyy);
-    			float back = perlin2(base + dd.yyx);
+    			float3 base = float3(n.x, n.y, floor(n.z * 64.0) * 0.015625);
+    			float3 dd = float3(0.015625, 0.0, 0.0);
+    			float3 p = (n - base) *  64.0;
+    			float front = perlin_a(base + dd.yyy);
+    			float back = perlin_a(base + dd.yyx);
     			return lerp(front, back, p.z);
 			}
 
@@ -52,53 +54,44 @@ Shader "Colours"
     			float m2 = 0.1;
     			for (int i = 0; i < 5; i++)
     			{
-        			total += perlin3(n * m1) * m2;
+        			total += perlin_b(n * m1) * m2;
         			m2 *= 2.0;
         			m1 *= 0.5;
     			}
     			return total;
 			}
 
-			float nebula1(float3 uv)
+			float A (float3 n)
 			{
-    			float n1 = fbm(uv * 2.9 - 1000.0);
-    			float n2 = fbm(uv + n1 * 0.05);   
-    			return n2;
+    			return fbm(n + fbm(n * 2.9 - 1000.0) * 0.05);   
 			}
 
-			float nebula2(float3 uv)
-			{
-			    float n1 = fbm(uv * 1.3 + 115.0);
-			    float n2 = fbm(uv + n1 * 0.35);   
-			    return fbm(uv + n2 * 0.17);
+			float B (float3 n)
+			{ 
+			    return fbm(n + fbm(n + fbm(n * 1.3 + 115.0) * 0.35) * 0.17);
 			}
 
-			float nebula3(float3 uv)
+			float C (float3 n)
 			{
-			    float n1 = fbm(uv * 3.0);
-			    float n2 = fbm(uv + n1 * 0.15);   
-			    return n2;
+			    return fbm(n + fbm(n * 3.0) * 0.15);   
 			}
 
-			float3 nebula(float3 uv)
+			float3 ABC (float3 n)
 			{
-    			uv *= 10.0;
-				return nebula1(uv * 0.5) * float3(1.0, 0.0, 0.0) +
-        		nebula2(uv * 0.4) * float3(0.0, 1.0, 0.0) +
-        		nebula3(uv * 0.6) * float3(0.0, 0.0, 1.0);        
+				return float3(A(5.0 * n),0,0)  + float3(0.0, B(4.0 * n) ,0.0 )  + float3 (0,0,C(6.0 * n) );        
 			}
 
-			v2f vertex_shader (float4 local_vertex:position, float2 uv:texcoord0)
+			custom_type vertex_shader (float4 vertex : POSITION, float2 uv : TEXCOORD0)
 			{
-				v2f o;
-				o.screen_space_vertex = mul(UNITY_MATRIX_MVP,local_vertex);
-				o.uv=uv;
-				return o;
+				custom_type vs;
+				vs.vertex = mul (UNITY_MATRIX_MVP,vertex);
+				vs.uv=uv;
+				return vs;
 			}
 
-			float4 pixel_shader (v2f i) : SV_TARGET
+			float4 pixel_shader (custom_type ps) : SV_TARGET
 			{
-				return float4(float3((nebula(float3(i.uv*5.1,_Time.g*0.1)*0.1)-1.0)),1.0);
+				return float4(float3((ABC(float3(ps.uv.xy*5.1,_Time.g*0.1)*0.1)-1.0)),1.0);
 			}
 
 			ENDCG
