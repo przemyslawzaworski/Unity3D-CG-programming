@@ -68,12 +68,12 @@ Shader "Colours"
 
 			float B (float3 n)
 			{ 
-			    return fbm(n + fbm(n + fbm(n * 1.3 + 115.0) * 0.35) * 0.17);
+				return fbm(n + fbm(n + fbm(n * 1.3 + 115.0) * 0.35) * 0.17);
 			}
 
 			float C (float3 n)
 			{
-			    return fbm(n + fbm(n * 3.0) * 0.15);   
+				return fbm(n + fbm(n * 3.0) * 0.15);   
 			}
 
 			float3 ABC (float3 n)
