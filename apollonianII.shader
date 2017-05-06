@@ -91,7 +91,7 @@ Shader "ApollonianII"
 					float3 w = forwardSF( float(i), 16.0 );
 					w *= sign( dot(w,nor) );
 					float h = float(i)/15.0;
-				ao += clamp( map( pos + nor*0.01 + w*h*0.15 ).x*2.0, 0.0, 1.0 );
+					ao += clamp( map( pos + nor*0.01 + w*h*0.15 ).x*2.0, 0.0, 1.0 );
 				}
 				return clamp (ao, 0.0, 1.0 );
 			}
