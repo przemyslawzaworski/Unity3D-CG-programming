@@ -68,7 +68,7 @@
 
 			float3 lighting (float3 p)
 			{	
-			  float3 LightPosition = float3( 94.0, 15.0, -50.0 );
+				float3 LightPosition = float3( 94.0, 15.0, -50.0 );
 				LightPosition .x = cos( _Time.g * 0.5 ) * 8.0;
 				LightPosition .z = sin( _Time.g * 0.5 ) * 8.0;
 				float3 LightDirection  = LightPosition - p;
