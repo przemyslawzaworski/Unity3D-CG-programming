@@ -18,9 +18,9 @@ Shader "Raymarching Materials"
 			
 			float4 hexagon (float3 p, float3 c, float2 h)
 			{
-					float3 q = abs(p+c);
-					float3 m = float3 (1.0,0.0,0.0);
-					return float4 (m,max(q.z-h.y,max((q.x*0.866025+q.y*0.5),q.y)-h.x));
+				float3 q = abs(p+c);
+				float3 m = float3 (1.0,0.0,0.0);
+				return float4 (m,max(q.z-h.y,max((q.x*0.866025+q.y*0.5),q.y)-h.x));
 			}
 			
 			float4 sphere (float3 p,float3 c,float r)
@@ -31,10 +31,10 @@ Shader "Raymarching Materials"
 
 			float4 ring (float3 p, float3 c, float2 t)
 			{
-					float3 m = float3(1.0,0.64,0.0);
-					float2 q = float2(sqrt((p.x-c.x)*(p.x-c.x) + (p.z-c.z)*(p.z-c.z) )-t.x,p.y-c.y);
-					q=q*q; q=q*q; q=q*q;
-					return float4(m,pow( q.x + q.y, 0.125 )-t.y);
+				float3 m = float3(1.0,0.64,0.0);
+				float2 q = float2(sqrt((p.x-c.x)*(p.x-c.x) + (p.z-c.z)*(p.z-c.z) )-t.x,p.y-c.y);
+				q=q*q; q=q*q; q=q*q;
+				return float4(m,pow( q.x + q.y, 0.125 )-t.y);
 			}
 					
 			float4 map (float3 p)
