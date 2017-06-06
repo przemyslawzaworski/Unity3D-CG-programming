@@ -92,7 +92,7 @@ Shader "Chess with sky and SSAA"
 						float2 offset = float2(float(m),float(n))/float(ssaa)-0.5;
 						float2 pixel = (-1.0*_ScreenParams.xy + 2.0*(ps.screen_vertex.xy+offset.xy))/_ScreenParams.y;
 						float3 worldPosition = ps.world_vertex;
-            float3 viewDirection = normalize(float3(-pixel,2.0));
+						float3 viewDirection = normalize(float3(-pixel,2.0));
 						color=color+lerp(sky(viewDirection), raymarch(worldPosition,viewDirection).xyz, pow(smoothstep(0.0,-0.55,viewDirection.y),0.5) );
 					}
 				}
