@@ -1,4 +1,5 @@
 ﻿//In Unity3D editor, add 3D Object/Quad to Main Camera, then bind material with shader to the quad. Set quad position at (x=0 ; y=0; z=0.4;). Apply fly script to the camera. Play.
+//references: http://www.iquilezles.org/www/articles/smin/smin.htm   https://www.shadertoy.com/view/Xds3zN
 Shader "Abstract"
 {
 	Subshader
@@ -24,40 +25,30 @@ Shader "Abstract"
 							
 			float smin( float a, float b, float k )
 			{
-					float h = clamp( 0.5+0.5*(b-a)/k, 0.0, 1.0 );
-					return lerp( b, a, h ) - k*h*(1.0-h);
+				float h = clamp( 0.5+0.5*(b-a)/k, 0.0, 1.0 );
+				return lerp( b, a, h ) - k*h*(1.0-h);
 			}
 						
 			float map (float3 p)
 			{
-				//float4 solid= float4(1.0,0.0,0.0,smin( cuboid(p,float3(0,0,0),float3(3,1,3)).w, cuboid(p,float3(0,1,0),float3(1,1,1)).w,2.0)) ;
-				//return lerp (cuboid2(p,float3(0,abs(sin(_Time.g))+2,0),float3(1,1,1)), solid, step(-cuboid2(p,float3(0,abs(sin(_Time.g))+2,0),float3(1,1,1)).w ,solid.w));
-				//if (solid.w>-cuboid(p,float3(0,abs(sin(_Time.g))+2,0),float3(1,1,1)).w) return
-				//t=max(t,-cuboid(p,float3(0,abs(sin(_Time.g))+2,0),float3(1,1,1)).w);
-				//return float4(1.0,0.0,0.0,t);
-				//return float4(lerp(cuboid(p,float3(0,0,0),float3(3,1,3)).xyz,cuboid2(p,float3(0,1,0),float3(1,1,1)).xyz,t),t);
-				//return solid;
-				return max( smin( cuboid(p,float3(0,0,0),float3(3,1,3)), cuboid(p,float3(0,1,0),float3(1,1,1)),2.0),-cuboid(p,float3(0,abs(sin(_Time.g))+2,0),float3(1,1,1)));
+				return max(smin(cuboid(p,float3(0,0,0),float3(3,1,3)),cuboid(p,float3(0,1,0),float3(1,1,1)),2.0),-cuboid(p,float3(0,abs(sin(_Time.g))+2,0),float3(1,1,1)));
 			}
-
 			
-			float calcAO( float3 pos, float3 nor )
+			float ambient_occlusion( float3 pos, float3 nor )
 			{
 				float occ = 0.0;
-					float sca = 1.0;
-					for( int i=0; i<5; i++ )
-					{
-							float hr = 0.01 + 0.12*float(i)/4.0;
-							float3 aopos =  nor * hr + pos;
-							float dd = map( aopos );
-							occ += -(dd-hr)*sca;
-							sca *= 0.95;
-					}
-					return clamp( 1.0 - 3.0*occ, 0.0, 1.0 );    
+				float sca = 1.0;
+				for( int i=0; i<5; i++ )
+				{
+					float hr = 0.01 + 0.12*float(i)/4.0;
+					float3 aopos =  nor * hr + pos;
+					float dd = map( aopos );
+					occ += -(dd-hr)*sca;
+					sca *= 0.95;
+				}
+				return clamp( 1.0 - 3.0*occ, 0.0, 1.0 );    
 			}
-			
-			
-			
+						
 			float3 set_normal (float3 p)
 			{
 				float3 x = float3 (0.001,0.00,0.00);
@@ -72,8 +63,7 @@ Shader "Abstract"
 				float3 LightDirection = normalize(float3 (4.0,10.0,-10.0));
 				float3 LightColor = float3 (1.0,1.0,1.0);
 				float3 NormalDirection = set_normal(p);
-				return (max(dot(LightDirection, NormalDirection),0.0) * LightColor + AmbientLight)*calcAO(p,NormalDirection);
-				//return float3(1.0,0.0,0.0)*calcAO(p,NormalDirection);
+				return (max(dot(LightDirection, NormalDirection),0.0) * LightColor + AmbientLight)*ambient_occlusion(p,NormalDirection);
 			}
 
 			float4 raymarch (float3 ro, float3 rd)
