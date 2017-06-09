@@ -14,7 +14,7 @@ public class raymarching_direct_compute : MonoBehaviour
 		compute_shader.SetTexture(0,"render_texture",render_texture);
 		compute_shader.Dispatch(0,render_texture.width/8,render_texture.height/8,1);
 		Renderer renderer = GetComponent<Renderer>();
-        renderer.material = new Material(Shader.Find("Unlit/Texture"));
+		renderer.material = new Material(Shader.Find("Unlit/Texture"));
 		renderer.material.mainTexture = render_texture;
 	}
 }
