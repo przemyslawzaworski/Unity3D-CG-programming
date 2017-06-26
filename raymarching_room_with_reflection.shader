@@ -68,12 +68,12 @@ Shader "Raymarching room with reflections"
 			
 			float3 raymarch( float3 ro,  float3 rd, float h)
 			{					
-					for (int i = 0; i < 128; i++)
-					{
-						float t = map(ro + h*rd).w;	
-						if (t<0.0001) return ro + h*rd; else h += t;
-					}					
-					return ro + h*rd;
+				for (int i = 0; i < 128; i++)
+				{
+					float t = map(ro + h*rd).w;	
+					if (t<0.0001) return ro + h*rd; else h += t;
+				}					
+				return ro + h*rd;
 			}
 				
 			float3 lambert (float3 p, float3 ViewDirection)
