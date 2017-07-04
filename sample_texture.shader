@@ -43,7 +43,7 @@
 					
 			float map (float3 p)
 			{
-			  p = mul(rotation(_Time.g ),p);
+				p = mul(rotation(_Time.g ),p);
 				return cuboid(p,float3(0.0,0.0,0.0),float3(1.0,1.0,1.0));
 			}
 			
