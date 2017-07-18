@@ -1,6 +1,6 @@
 ﻿// Upgrade NOTE: replaced '_Object2World' with 'unity_ObjectToWorld'
 // Upgrade NOTE: replaced 'mul(UNITY_MATRIX_MVP,*)' with 'UnityObjectToClipPos(*)'
-
+// Heightmap should be in high resolution (1024x1024 or better) and be blurred to avoid artifacts. Set Main Camera to following position (0,50,0).
 Shader "Terrain with heightmap"
 {
 	Properties
