@@ -10,13 +10,13 @@ public struct Point
 }
 
 public class ProceduralGeometry : MonoBehaviour 
-{  
-    public Material material ;
-    public GameObject gameobject;
-    private ComputeBuffer computebuffer;
-    private int n = 0;
-   
-    void Start () 
+{
+	public Material material ;
+	public GameObject gameobject;
+	private ComputeBuffer computebuffer;
+	private int n = 0;
+
+	void Start () 
 	{
 		Mesh mesh = gameobject.GetComponent<MeshFilter>().sharedMesh;
 		n = mesh.triangles.Length;
@@ -32,13 +32,13 @@ public class ProceduralGeometry : MonoBehaviour
 		computebuffer.SetData (points);
 		material.SetBuffer ("points", computebuffer);      
 	}
-     
+
 	void OnRenderObject() 
 	{
 		material.SetPass(0);
 		Graphics.DrawProcedural(MeshTopology.Triangles, n, 1);
 	}
-       
+
 	void OnDestroy() 
 	{
 		computebuffer.Release ();
