@@ -93,7 +93,7 @@ Shader "Elevated"
 				return SC*120.0*a;
 			}
 
-			float interesct(float3 ro,float3 rd,float tmin,float tmax )
+			float intersect(float3 ro,float3 rd,float tmin,float tmax )
 			{
 				float t = tmin;
 				for( int i=0; i<256; i++ )
@@ -116,9 +116,9 @@ Shader "Elevated"
 					float h = p.y - terrainM( p.xz );
 					res = min( res, 16.0*h/t );
 					t += h;
-					if( res<0.001 ||p.y>(SC*200.0) ) break;
+					if(res<0.001||p.y>(SC*200.0)) break;
 				}
-				return clamp( res, 0.0, 1.0 );
+				return saturate(res);
 			}
 
 			float3 calcNormal(float3 pos, float t )
@@ -142,13 +142,12 @@ Shader "Elevated"
 
 			float4 render( in float3 ro, in float3 rd )
 			{
-				float3 light1 = normalize( float3(-0.8,0.4,-0.3) );
+				float3 light1 = normalize(float3(-0.8,0.4,-0.3));
 				float tmin = 0.5;
 				float tmax = kMaxT;
-
 				float sundot = clamp(dot(rd,light1),0.0,1.0);
 				float3 col;
-				float t = interesct( ro, rd, tmin, tmax );
+				float t = intersect( ro, rd, tmin, tmax );
 				if( t>tmax)
 				{	
 					col = float3(0.2,0.5,0.85)*1.1 - rd.y*rd.y*0.5;
@@ -169,7 +168,7 @@ Shader "Elevated"
 					float fre = clamp( 1.0+dot(rd,nor), 0.0, 1.0 );
 					float r = noised((7.0/SC)*pos.xz/256.0 ).x;
 					col = (r*0.25+0.75)*0.9*lerp( float3(0.08,0.05,0.03), float3(0.10,0.09,0.08), 
-												 noised(0.00007*float2(pos.x,pos.y*48.0)/SC).x );
+						noised(0.00007*float2(pos.x,pos.y*48.0)/SC).x );
 					col = lerp( col, 0.20*float3(0.45,.30,0.15)*(0.50+0.50*r),smoothstep(0.70,0.9,nor.y) );
 					col = lerp( col, 0.15*float3(0.30,.30,0.10)*(0.25+0.75*r),smoothstep(0.95,1.0,nor.y) );
 					float h = smoothstep(55.0,80.0,pos.y/SC + 25.0*fbm(0.01*pos.xz/SC) );
