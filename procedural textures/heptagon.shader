@@ -17,8 +17,8 @@
 
 			float heptagon(float2 p, float r)
 			{
-			  float k = atan2(p.y,p.x) + 1.5708;
-			  return length(p)*cos(0.8976*floor(0.5+k*1.1141)-k)-r;
+				float k = atan2(p.y,p.x)+1.5708;
+				return length(p)*cos(0.8976*floor(0.5+k*1.1141)-k)-r;
 			}
 			
 			custom_type vertex_shader (float4 vertex:POSITION, float2 uv:TEXCOORD0)
