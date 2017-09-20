@@ -1,0 +1,44 @@
+﻿//calculate Fisher Linear Discriminant
+
+#pragma kernel CSMain
+
+StructuredBuffer<float>  acer ;      //read-only buffer
+StructuredBuffer<float>  quercus ;
+RWStructuredBuffer<float>  fisher ;  //read-write buffer
+
+[numthreads(64,1,1)]  // make 64 threads
+void CSMain (int3 id : SV_GroupThreadID)  // id variable is thread index, every thread works parallel 
+{
+	float sredniaA = 0.0;   //arithmetic mean A
+	float sredniaB = 0.0;   //arithmetic mean B
+	float odchA = 0.0;   //standard deviation A
+	float odchB = 0.0;   //standard deviation B
+
+	for (int zz = 0; zz < 176; zz++) 
+	{
+		sredniaA += acer[id.x+zz*64];
+	}
+	sredniaA = sredniaA / 176.0;
+
+	for (int zzz = 0; zzz < 176; zzz++) 
+	{
+		odchA += ( (acer [id.x+zzz*64] - sredniaA) * (acer [id.x+zzz*64] - sredniaA)); 
+	}
+	odchA /= 176.0;
+	odchA =  sqrt(odchA);
+			 
+	for (int zzzz = 0; zzzz < 608; zzzz++) 
+	{
+		sredniaB += quercus [id.x+zzzz*64];
+	}
+	sredniaB = sredniaB / 608.0;
+
+	for (int zzzzz = 0; zzzzz < 608; zzzzz++) 
+	{
+		odchB += ( (quercus [id.x+zzzzz*64] - sredniaB) * (quercus [id.x+zzzzz*64] - sredniaB)); 
+	}
+	odchB  /= 608.0;
+	odchB = sqrt(odchB);
+
+	fisher [id.x] = (abs (sredniaA - sredniaB)) / (odchA + odchB);
+}
