@@ -1,4 +1,4 @@
-﻿Shader "2D Fractal Generator "
+﻿Shader "2D Fractal Generator Distortion"
 {
     Properties
     {
