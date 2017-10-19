@@ -10,7 +10,9 @@ CC licence https://creativecommons.org/licenses/by-nc-sa/3.0/
 Filename                                Licence
 
 2D_fractal_generator.shader               MIT
+
 2D_fractal_generator_distortion.shader	  MIT
+
 3d_fractal_generator.shader               MIT
 ProceduralGeometry.cs                     MIT
 ProceduralGeometry.shader                 MIT
