@@ -1,0 +1,25 @@
+﻿#pragma kernel CSInit
+#pragma kernel CSMain
+
+Texture2D<float4> image; 
+SamplerState _LinearClamp;
+RWStructuredBuffer<uint> compute_buffer;
+
+[numthreads(64,1,1)]
+void CSInit(uint3 id : SV_DispatchThreadID) 
+{
+	compute_buffer[id.x] = 0.0;
+}
+
+[numthreads(8,8,1)]
+void CSMain (uint3 id : SV_DispatchThreadID) 
+{
+	float w,h;
+	image.GetDimensions(w,h);
+	float u = id.x/w;
+	float v = id.y/h;
+	float2 uv = float2 (u,v);
+	float4 color = image.SampleLevel(_LinearClamp,uv,0);
+	uint value = ceil(color.r);
+	InterlockedAdd(compute_buffer[0], value);
+}
