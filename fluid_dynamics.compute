@@ -1,0 +1,45 @@
+﻿//Simplified version of shader, which full version was created by Florian Berger: https://www.shadertoy.com/view/MsGSRd
+//Translated from ShaderToy to Unity by Przemyslaw Zaworski, 18.12.2017, https://github.com/przemyslawzaworski/Unity3D-CG-programming
+//Additional support: Seyed Morteza Kamaly, https://github.com/smkplus 
+//To simulate self-accumulated buffer, I use two render textures which are swapped between every render frame.
+//Usage: apply fluid_dynamics.cs script to gameobject, select fluid_dynamics.compute and any material with _MainTex free slot,
+//for example built-in Unlit/Texture. 
+
+#pragma kernel CSMain
+
+Texture2D<float4> reader; 
+RWTexture2D<float4> writer;
+SamplerState _LinearClamp;
+
+[numthreads(8,8,1)]
+void CSMain (uint2 id : SV_DispatchThreadID) 
+{
+	float2 f = float2(id.x,id.y);  //fragCoord
+	float2 b = float2(0.31,0.95);
+	float2 iResolution=float2(1024,1024); //texture resolution
+	float2 v = float2(0.0,0.0);
+	float4 c = float4(0,0,0,1);   //initial color
+	for(int l=0;l<20;l++)
+	{
+		if ( dot(b,b) > pow(iResolution.y,2.0) ) break;
+		float2 p = b;
+		for(int i=0;i<5;i++)
+		{          
+			float2 pos = f+p; 
+			float rot=0.0;
+			for(int i=0;i<5;i++)
+			{
+				rot+=dot(reader.SampleLevel(_LinearClamp,float2(frac((pos+p)/iResolution.xy)),0).xy-float2(0.5,0.5),mul(float2(1,-1),p.yx));
+				p=float2(0.31*p.x+0.95*p.y,-0.95*p.x+0.31*p.y); 
+			}
+			v+=p.yx* rot/5.0/dot(b,b);      
+			p=float2(0.31*p.x+0.95*p.y,-0.95*p.x+0.31*p.y);
+		}
+		b*=2.0;
+	}   
+	float4 color=reader.SampleLevel(_LinearClamp,frac((f+v*float2(-2,2))/iResolution.xy),0); 
+	float2 s=(f.xy/iResolution.xy)*2.0-float2(1.0,1.0);
+	color.xy += (0.01*s.xy / (dot(s,s)/0.1+0.3));
+	c = color; 
+	writer[id]=c;
+}
