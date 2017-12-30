@@ -1,4 +1,4 @@
-﻿//useful links:
+//useful links:
 //https://www.shadertoy.com/view/XdS3RW
 //see also: https://docs.gimp.org/en/gimp-concepts-layer-modes.html
 
@@ -18,15 +18,20 @@ Shader "Photoshop Blends"
 			#pragma vertex vertex_shader
 			#pragma fragment pixel_shader
 			#pragma target 3.0
+			
+			#include "UnityCG.cginc"
 
 			struct custom_type
 			{
 				float4 vertex : SV_POSITION;
 				float2 uv : TEXCOORD0; 
+				float2 uv1 : TEXCOORD1; 
 			};
 			
 			sampler2D _destination,_source;
 			int number;
+			float4 _source_ST;
+			float4 _destination_ST;
 						
 			float3 darken( float3 s, float3 d )
 			{
@@ -261,20 +266,22 @@ Shader "Photoshop Blends"
 				return float3(0,0,0);
 			}			
 						
-			custom_type vertex_shader (float4 vertex:POSITION, float2 uv:TEXCOORD0)
+			custom_type vertex_shader (float4 vertex:POSITION, float2 uv:TEXCOORD0, float2 uv1:TEXCOORD1)
 			{
 				custom_type vs;
 				vs.vertex = UnityObjectToClipPos(vertex);
-				vs.uv = uv;
+				vs.uv = TRANSFORM_TEX(uv, _source);
+				vs.uv1 = TRANSFORM_TEX(uv, _destination);
 				return vs;
 			}
 
 			float4 pixel_shader (custom_type ps) : SV_TARGET
 			{
 				float2 uv = ps.uv.xy;
+				float2 uv1 = ps.uv1.xy;
 				int id =number;
 				float3 s = tex2D(_source, uv).xyz;
-				float3 d = tex2D(_destination, uv).xyz;
+				float3 d = tex2D(_destination, uv1).xyz;
 				float3 c = blend(s,d,id);
 				return float4(c,1.0);			
 			}
