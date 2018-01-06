@@ -1,0 +1,242 @@
+﻿//Reference: https://www.shadertoy.com/view/4dtGWB
+//Translated from ShaderToy to Unity by Przemyslaw Zaworski, 06.01.2018, https://github.com/przemyslawzaworski/Unity3D-CG-programming
+//To simulate self-accumulated buffer, I use two render textures which are swapped between every render frame.
+//Usage: apply smallpt.cs script to gameobject, select smallpt.compute and any material with _MainTex free slot,
+//for example built-in Unlit/Texture.  Also apply Unlit material to selected gameobject.
+//Need to fix overbrighting and seed generator, for instance
+//experiment with change last line from writer[id] = float4(clamp(color/float(iFrame + 8.0),0.0,1.0),1.0)
+//to writer[id] = float4(clamp(color/float(iFrame + 1.0),0.0,1.0),1.0)
+
+#pragma kernel CSMain
+
+Texture2D<float4> reader; 
+RWTexture2D<float4> writer;
+SamplerState _PointClamp;
+float iFrame, iTime;
+
+#define MAXDEPTH 4
+#define PI 3.14159265359
+#define DIFF 0
+#define SPEC 1
+#define REFR 2
+#define NUM_SPHERES 9
+
+float seed = 0.0;
+			
+float rand() 
+{ 
+	return frac(sin(seed++)*43758.5453123); 
+}
+
+struct Ray 
+{ 
+	float3 o, d; 
+};
+
+struct Sphere 
+{
+	float r;
+	float3 p, e, c;
+	int refl;
+};
+		
+Sphere lightSourceVolume;
+
+void initLight()
+{
+	lightSourceVolume.r = 20.0;
+	lightSourceVolume.p = float3(50.0, 81.6, 81.6);
+	lightSourceVolume.e = float3(12,12,12);
+	lightSourceVolume.c = float3(0,0,0);
+	lightSourceVolume.refl = DIFF;
+}
+
+Sphere spheres[NUM_SPHERES];
+		
+void initSpheres() 
+{
+	spheres[0].r = 1e5;
+	spheres[0].p = float3(-1e5+1., 40.8, 81.6);
+	spheres[0].e = float3(0,0,0);
+	spheres[0].c = float3(.75, .25, .25);
+	spheres[0].refl = DIFF;
+
+	spheres[1].r = 1e5;
+	spheres[1].p = float3( 1e5+99., 40.8, 81.6);
+	spheres[1].e = float3(0,0,0);
+	spheres[1].c = float3(.25, .25, .75);
+	spheres[1].refl = DIFF;
+
+	spheres[2].r = 1e5;
+	spheres[2].p = float3(50., 40.8, -1e5);
+	spheres[2].e = float3(0,0,0);
+	spheres[2].c = float3(.75, .75, .75);
+	spheres[2].refl = DIFF;
+
+	spheres[3].r = 1e5;
+	spheres[3].p = float3(50., 40.8,  1e5+170.);
+	spheres[3].e = float3(0,0,0);
+	spheres[3].c = float3(0,0,0);
+	spheres[3].refl = DIFF;
+
+	spheres[4].r = 1e5;
+	spheres[4].p = float3(50., -1e5, 81.6);
+	spheres[4].e = float3(0,0,0);
+	spheres[4].c = float3(.75,.75,.75);
+	spheres[4].refl = DIFF;
+
+	spheres[5].r = 1e5;
+	spheres[5].p = float3(50.,  1e5+81.6, 81.6);
+	spheres[5].e = float3(0,0,0);
+	spheres[5].c = float3(.75,.75,.75);
+	spheres[5].refl = DIFF;
+
+	spheres[6].r = 16.5;
+	spheres[6].p = float3(27., 16.5, 47.);
+	spheres[6].e = float3(0,0,0);
+	spheres[6].c = float3(1,1,1);
+	spheres[6].refl = SPEC;
+
+	spheres[7].r = 16.5;
+	spheres[7].p = float3(73., 16.5, 78.);
+	spheres[7].e = float3(0,0,0);
+	spheres[7].c = float3(.7, 1., .9);
+	spheres[7].refl = REFR;
+
+	spheres[8].r = 600.0;
+	spheres[8].p = float3(50., 681.33, 81.6);
+	spheres[8].e = float3(12,12,12);
+	spheres[8].c = float3(0,0,0);
+	spheres[8].refl = DIFF;			
+}
+
+float intersect(Sphere s, Ray r) 
+{
+	float3 op = s.p - r.o;
+	float t, epsilon = 1e-3, b = dot(op, r.d), det = b * b - dot(op, op) + s.r * s.r;
+	if (det < 0.) return 0.; else det = sqrt(det);
+	return (t = b - det) > epsilon ? t : ((t = b + det) > epsilon ? t : 0.);
+}
+
+int intersect(Ray r, out float t, out Sphere s, int avoid) 
+{
+	int id = -1;
+	t = 1e5;
+	s = spheres[0];
+	for (int i = 0; i < NUM_SPHERES; ++i) 
+	{
+		Sphere S = spheres[i];
+		float d = intersect(S, r);
+		if (i!=avoid && d!=0. && d<t) { t = d; id = i; s=S; }
+	}
+	return id;
+}
+
+float3 jitter(float3 d, float phi, float sina, float cosa) 
+{
+	float3 w = normalize(d), u = normalize(cross(w.yzx, w)), v = cross(w, u);
+	return (u*cos(phi) + v*sin(phi)) * sina + w * cosa;
+}
+
+float3 radiance(Ray r) 
+{
+	float3 acc = float3(0,0,0);
+	float3 mask = float3(1,1,1);
+	int id = -1;
+	for (int depth = 0; depth < MAXDEPTH; ++depth) 
+	{
+		float t;
+		Sphere obj;
+		if ((id = intersect(r, t, obj, id)) < 0) break;
+		float3 x = t * r.d + r.o;
+		float3 n = normalize(x - obj.p), nl = n * sign(-dot(n, r.d));
+		if (obj.refl == DIFF) 
+		{
+			float r2 = rand();
+			float3 d = jitter(nl, 2.*PI*rand(), sqrt(r2), sqrt(1. - r2));
+			float3 e = float3(0,0,0);					
+			Sphere s = lightSourceVolume;
+			int i = 8;
+			float3 l0 = s.p - x;
+			float cos_a_max = sqrt(1. - clamp(s.r * s.r / dot(l0, l0), 0., 1.));
+			float cosa = lerp(cos_a_max, 1., rand());
+			float3 l = jitter(l0, 2.*PI*rand(), sqrt(1. - cosa*cosa), cosa);
+			Ray ray1;
+			ray1.o=x;
+			ray1.d=l;
+			if (intersect(ray1, t, s, id) == i) 
+			{
+				float omega = 2. * PI * (1. - cos_a_max);
+				e += (s.e * clamp(dot(l, n),0.,1.) * omega) / PI;
+			}					
+			float E = 1.;
+			acc += mask * obj.e * E + mask * obj.c * e;
+			mask *= obj.c;
+			Ray ray2;
+			ray2.o=x;
+			ray2.d=d;
+			r = ray2;
+		} 
+		else if (obj.refl == SPEC) 
+		{
+			acc += mask * obj.e;
+			mask *= obj.c;
+			Ray ray3;
+			ray3.o=x;
+			ray3.d=reflect(r.d, n);
+			r = ray3;
+		} 
+		else 
+		{
+			float a=dot(n,r.d), ddn=abs(a);
+			float nc=1., nt=1.5, nnt=lerp(nc/nt, nt/nc, float(a>0.));
+			float cos2t=1.-nnt*nnt*(1.-ddn*ddn);
+			Ray ray4;
+			ray4.o=x;
+			ray4.d=reflect(r.d, n);
+			r = ray4;
+			if (cos2t>0.) 
+			{
+				float3 tdir = normalize(r.d*nnt + sign(a)*n*(ddn*nnt+sqrt(cos2t)));
+				float R0=(nt-nc)*(nt-nc)/((nt+nc)*(nt+nc)),
+				c = 1.-lerp(ddn,dot(tdir, n),float(a>0.));
+				float Re=R0+(1.-R0)*c*c*c*c*c,P=.25+.5*Re,RP=Re/P,TP=(1.-Re)/(1.-P);
+				if (rand()<P) 
+				{ 
+					mask *= RP; 
+				}
+				else 
+				{
+					mask *= obj.c*TP; 
+					Ray ray5;
+					ray5.o=x;
+					tdir;
+					r = ray5; 
+				}
+			}
+		}
+	}
+	return acc;
+}
+
+[numthreads(8,8,1)]
+void CSMain (uint2 id : SV_DispatchThreadID) 
+{
+	float2 iResolution = float2(1024,1024);	
+	float2 fragCoord = float2(id.x,id.y);
+	initLight();
+	initSpheres();
+	float2 st = fragCoord.xy / iResolution.xy;
+	seed = iTime  + iResolution.y * fragCoord.x / iResolution.x + fragCoord.y / iResolution.y;
+	float2 uv = 2. * fragCoord.xy / iResolution.xy - 1.;
+	float3 camPos = float3((2. * .5*iResolution.xy / iResolution.xy - 1.) * float2(48., 40.) + float2(50., 40.8), 169.);
+	float3 cz = normalize(float3(50., 40., 81.6) - camPos);
+	float3 cx = float3(1., 0., 0.);
+	float3 cy = normalize(cross(cx, cz)); cx = cross(cz, cy);
+	float3 color = reader.SampleLevel(_PointClamp,st,0).rgb* float(iFrame);										
+	Ray ray6;
+	ray6.o=camPos;
+	ray6.d=normalize(.53135 * (iResolution.x/iResolution.y*uv.x * cx + uv.y * cy) + cz);
+	color += radiance(ray6);
+	writer[id] = float4(clamp(color/float(iFrame + 8.0),0.0,1.0),1.0);	
+}
