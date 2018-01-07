@@ -211,11 +211,11 @@ Shader "Atmospheric Scattering"
 				sun.alt = -0.1 + 1.2 * PI_4 * (0.5 + cos(0.38*_Time.g*speed) / 2.0);
 				float3 gp = c_position + float3(0.0, earth.rs + 1.0, 0.0);
 				float3 res = compute_sky_light(gp, rd, earth, sun,sun.alt*2.0);
-        float crush = 0.6;
-        float frange = 7.8;
-        res = log2(1.0+res*exposure);
-        res = smoothstep(crush, frange, res);
-        res = res*res*res*(res*(res*6.0 - 15.0) + 10.0);	
+				float crush = 0.6;
+				float frange = 7.8;
+				res = log2(1.0+res*exposure);
+				res = smoothstep(crush, frange, res);
+				res = res*res*res*(res*(res*6.0 - 15.0) + 10.0);	
 				return float4(res, 1.0);
 			}
 			ENDCG
