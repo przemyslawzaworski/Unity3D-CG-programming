@@ -1,6 +1,7 @@
 ﻿//Load volume_texture.shader into Unity Engine.
 //Optionially, add fly script to Main Camera.
-
+//This is basic template, so feel free to replace boring hash function with
+//own voxel structure.
 using UnityEngine;
 
 public class volume_texture : MonoBehaviour 
@@ -21,7 +22,7 @@ public class volume_texture : MonoBehaviour
 	}
 	
 	void GenerateVolume (int size)
-    {
+	{
 		Texture3D volume = new Texture3D (size, size, size, TextureFormat.ARGB32, true);
 		var voxels = new Color[size*size*size];
 		int i = 0;
@@ -42,7 +43,7 @@ public class volume_texture : MonoBehaviour
 		volume.SetPixels (voxels);
 		volume.Apply ();
 		material.SetTexture("volume",volume);
-    }
+	}
 		
 	void Start () 
 	{
