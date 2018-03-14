@@ -1,4 +1,6 @@
-﻿Shader "Isolines"
+﻿//For best results, set input texture compression to none
+
+Shader "Isolines"
 {
 	Properties
 	{
