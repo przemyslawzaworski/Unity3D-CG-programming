@@ -12,6 +12,7 @@
 			CGPROGRAM
 			#pragma vertex vertex_shader
 			#pragma fragment pixel_shader
+			#pragma target 5.0
 
 			float _radius;
 			sampler2D _MainTex;
@@ -44,7 +45,7 @@
 				radius = 1.0;
 				for (int j=0;j<80;j++)
 				{  
-					radius += 1.0/radius;
+					radius += rcp(radius); //sm 5.0 fast reciprocal function
 					angle = mul(angle,m);
 					float3 color = surface(_MainTex,uv+texel*(radius-1.0)*angle).rgb;
 					total += color;
