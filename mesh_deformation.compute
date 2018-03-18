@@ -1,0 +1,15 @@
+﻿#pragma kernel CSMain
+
+RWStructuredBuffer<float3> local_vertices_buffer;
+RWStructuredBuffer<float3> world_vertices_buffer;
+RWStructuredBuffer<float3> brush_center_buffer;
+
+[numthreads(1024,1,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+	float delta = distance(brush_center_buffer[0], world_vertices_buffer[id.x]);
+	if (delta<0.75)
+		local_vertices_buffer[id.x] = float3(local_vertices_buffer[id.x].x,local_vertices_buffer[id.x].y-0.001,local_vertices_buffer[id.x].z);
+	else		
+		local_vertices_buffer[id.x] = float3(local_vertices_buffer[id.x].x,local_vertices_buffer[id.x].y,local_vertices_buffer[id.x].z);
+}
