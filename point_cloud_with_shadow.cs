@@ -32,7 +32,7 @@ public class point_cloud_with_shadow : MonoBehaviour
 		material.SetBuffer("cloud", compute_buffer);		
 		camera_command_buffer.DrawProcedural(Matrix4x4.identity,material,0,MeshTopology.Points,number);
 		camera_source.AddCommandBuffer(CameraEvent.AfterGBuffer, camera_command_buffer);		
-		light_command_buffer.DrawProcedural(Matrix4x4.identity,material,1,MeshTopology.Points,number);
+		light_command_buffer.DrawProcedural(Matrix4x4.identity,material,0,MeshTopology.Points,number);
 		light_source.AddCommandBuffer(LightEvent.BeforeShadowMapPass,light_command_buffer);
 	}
 
