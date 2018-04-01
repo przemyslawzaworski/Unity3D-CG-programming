@@ -50,9 +50,9 @@ Shader "Point Cloud with Shadow"
 			ENDCG
 		}
 
-        Pass
-        {
-            Tags{"LightingMode" = "ShadowCaster"}
+		Pass
+		{
+			Tags{"LightingMode" = "ShadowCaster"}
 			CGPROGRAM
 			#pragma vertex vertex_shader
 			#pragma fragment pixel_shader
