@@ -1,0 +1,19 @@
+﻿#pragma kernel CSMain
+
+RWTexture2D<float4> render_texture;
+RWStructuredBuffer<float3> compute_buffer;
+float time;
+
+[numthreads(8,8,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+	int ResX, ResY;
+	render_texture.GetDimensions(ResX,ResY);
+	float2 uv = float2 (id.x/(float)ResX,id.y/(float)ResY);
+	float t = sin(time)*0.5+0.5;
+	if (uv.x>t)
+		render_texture[id.xy] = float4 (1.0,0.0,0.0,1.0);
+	else
+		render_texture[id.xy] = float4 (0.0,0.0,1.0,1.0);		
+	compute_buffer[id.y*ResY+id.x] = render_texture[id.xy].rgb;	
+}
