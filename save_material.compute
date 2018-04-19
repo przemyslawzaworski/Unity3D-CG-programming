@@ -1,0 +1,16 @@
+﻿#pragma kernel CSMain
+
+Texture2D<float4> render_texture;
+RWStructuredBuffer<float3> compute_buffer;
+SamplerState _PointClamp;
+float color_space;
+float brightness;
+
+[numthreads(8,8,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+	int ResX, ResY;
+	render_texture.GetDimensions(ResX,ResY);
+	float2 uv = float2 (id.x/(float)ResX,id.y/(float)ResY);
+	compute_buffer[id.y*ResY+id.x] = pow(abs(render_texture.SampleLevel(_PointClamp,uv,0).rgb),color_space)+brightness ;	
+}
