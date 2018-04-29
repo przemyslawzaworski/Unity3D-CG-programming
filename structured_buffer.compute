@@ -1,0 +1,46 @@
+﻿#pragma kernel CSMain
+
+RWStructuredBuffer<float4> A;
+float time;
+int resolution;
+
+float2x2 rotationX( float x) 
+{
+	return float2x2(cos(x),sin(x),-sin(x),cos(x));
+}
+
+float2x2 rotationY( float y) 
+{
+	return float2x2(cos(y),-sin(y),sin(y),cos(y));
+}
+
+float map (float3 p)
+{
+	p.yz=mul(rotationX(time),p.yz);
+	p.xz=mul(rotationY(time),p.xz);
+	p = abs(p); p = max(p, p.yzx);
+	return max(max(p.x, p.y) - 1.0, 0.8 - min(p.x, min(p.y, p.z)));
+}
+
+float3 raymarch (float3 ro, float3 rd)
+{
+	float t = 0.0;
+	for (int i = 0; i < 32; ++i) 
+	{
+		float3 p = ro + rd * t;
+		t += map(p);
+	}
+	return float3(1.0,0.8,0.0) / (1.0+t*t*0.1) * 0.5;
+}
+
+[numthreads(16,16,1)]
+void CSMain (uint2 id : SV_DispatchThreadID)
+{
+	float scale = 0.9;   //motion blur scale
+	float2 uv = (2.0*float2(id.x,id.y)-float2(resolution,resolution))/float(resolution);
+	float3 ro = float3(0.0, 0.0, -5.0);   //virtual camera position
+	float3 rd = normalize(float3(uv, 2.0));   //ray direction
+	float3 total = raymarch(ro, rd);   //trace in current frame
+	total += A[id.y*resolution+id.x].rgb * scale;   //accumulate data
+	A[id.y*resolution+id.x] = float4(total, 1.0);   //set final color
+}
