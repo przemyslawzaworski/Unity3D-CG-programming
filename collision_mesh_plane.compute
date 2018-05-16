@@ -1,0 +1,47 @@
+﻿//reference book: "Real-Time Collision Detection" by Christer Ericson
+
+#pragma kernel CSMain
+#pragma kernel CSInit
+
+StructuredBuffer<float3> input;
+RWStructuredBuffer<uint> output;
+float4x4 ObjectToWorld;
+float4 A,B,C; 
+
+struct Plane 
+{
+	float3 n; 
+	float d; 
+};
+
+Plane ComputePlane(float3 a, float3 b, float3 c)
+{
+	Plane p;
+	p.n = normalize(cross(b - a, c - a));
+	p.d = dot(p.n, a);
+	return p;
+}
+
+float DistPointPlane(float3 q, Plane p)
+{
+	return dot(q, p.n) - p.d; 
+}
+
+[numthreads(8,1,1)]
+void CSInit(uint id : SV_DispatchThreadID) 
+{
+	output[id] = 0; 
+}
+
+[numthreads(8,1,1)]
+void CSMain (uint id : SV_DispatchThreadID)
+{
+	Plane plane = ComputePlane(A.xyz,B.xyz,C.xyz);   
+	float d = DistPointPlane(mul(ObjectToWorld,float4(input[id],1.0)).xyz,plane);
+	uint value ;
+	if (abs(d)<0.001) 
+		value = 1;
+	else 
+		value = 0;
+	InterlockedAdd(output[0], value);
+}
