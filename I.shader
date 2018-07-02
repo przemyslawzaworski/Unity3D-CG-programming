@@ -1,4 +1,4 @@
-﻿//635 chars
+﻿//629 chars
 //Apply material with shader to quad.
 //Compiled in Unity 2018.1.0f2
 //Author: Przemyslaw Zaworski
@@ -16,9 +16,9 @@ Shader "I"
 
 			#define l lerp
 			
-			half f(half3 x) 
+			half k(half3 x)
 			{
-				half3 p = floor(x),f = smoothstep(0,1,frac(x)),n = {1,0,0};
+				half3 p = floor(x),f = frac(x),n = {1,0,0}; f *= f*(3-2*f);
 				#define h(m) frac(sin(dot(m,half3(1,13,57)))*1e5)
 				return l(l(l(h(p),h(p+n.xyy),f.x),l(h(p+n.yxy),h(p+n.xxy),f.x),f.y),l(l(h(p+n.yyx),h(p+n.xyx),f.x),l(h(p+n.yxx),h(p+1),f.x),f.y),f.z);
 			}
@@ -28,7 +28,7 @@ Shader "I"
 			void P(half4 u:POSITION, out half s:COLOR) 
 			{	
 				u = half4(9*u.xy/_ScreenParams,_Time.g,0);
-				for (half i=0;i<1;i+=.02,u.y-=.1,u.w=(f(u)+f(u+9.5))*.5,s=l(s,u.w,smoothstep(0,1,(u.w-i)/fwidth(u.w)))){}
+				for (half i;i<1;i+=.02,u.y-=.1,u.w=(k(u)+k(u+9.5))/2,s=l(s,u.w,smoothstep(0,1,(u.w-i)/fwidth(u.w)))){}
 			}
 
 			ENDCG
