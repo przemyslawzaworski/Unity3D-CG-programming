@@ -1,0 +1,29 @@
+#define HISTOGRAM_BINS          64
+#define HISTOGRAM_TEXELS        HISTOGRAM_BINS / 4
+#define HISTOGRAM_THREAD_X      16
+#define HISTOGRAM_THREAD_Y      16
+
+RWStructuredBuffer<uint> _Histogram;
+Texture2D<float4> _Source;
+float4 _ScaleOffsetRes; 
+groupshared uint gs_histogram[HISTOGRAM_BINS];
+
+#pragma kernel KEyeHistogram
+[numthreads(HISTOGRAM_THREAD_X,HISTOGRAM_THREAD_Y,1)]
+void KEyeHistogram(uint2 dispatchThreadId : SV_DispatchThreadID, uint2 groupThreadId : SV_GroupThreadID)
+{
+	const uint localThreadId = groupThreadId.y * HISTOGRAM_THREAD_X + groupThreadId.x;
+	if (localThreadId < HISTOGRAM_BINS) gs_histogram[localThreadId] = 0u;
+	GroupMemoryBarrierWithGroupSync();		
+	if (dispatchThreadId.x < (uint)_ScaleOffsetRes.z && dispatchThreadId.y < (uint)_ScaleOffsetRes.w)
+	{
+		uint weight = 1u;
+		float3 color = _Source[dispatchThreadId].xyz;
+		float luminance = max(color.x, max(color.y, color.z)); 
+		float logLuminance = saturate(log2(luminance) * _ScaleOffsetRes.x + _ScaleOffsetRes.y);
+		uint idx = (uint)(logLuminance * (HISTOGRAM_BINS - 1u));
+		InterlockedAdd(gs_histogram[idx], weight);
+	}
+	GroupMemoryBarrierWithGroupSync();
+	if (localThreadId < HISTOGRAM_BINS) InterlockedAdd(_Histogram[localThreadId], gs_histogram[localThreadId]);
+}
