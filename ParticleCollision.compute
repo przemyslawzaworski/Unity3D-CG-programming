@@ -1,0 +1,58 @@
+﻿//reference: https://www.shadertoy.com/view/MsKBzD
+#pragma kernel CSMain
+ 
+RWStructuredBuffer<float4> buffer;
+float iTimeDelta;
+int resolution,iFrame,amount;
+
+float3 hash( float3 p )
+{
+	float3 q = float3(dot(p,float3(127.1,311.7,516.3)),dot(p,float3(269.5,183.3,983.7)),dot(p,float3(419.2,371.9,679.9)));
+	return frac(sin(q)*43758.5453);
+}
+ 
+[numthreads(16,16,1)]
+void CSMain (uint2 id : SV_DispatchThreadID)
+{   
+	if (id.y < 2.0)
+	{
+		if (iFrame < 10) 
+		{
+			float3 h1 = hash(float3(id, 13.0));
+			float3 h2 = hash(float3(h1 * 129.0));		
+			buffer[id.y*resolution+id.x] = (id.y < 1.0) ? float4(h1.xy, (h2.yz - float2(0.5,0.5))) : float4(h1, .01 + h2.z * .01);
+		}
+		else 
+		{
+			if (id.y < 1.0) 
+			{
+				float4 particle = buffer[id.x]; 
+				float radius = buffer[resolution+id.x].w;  
+				if (particle.w < 0.0 && particle.y < radius) particle.w = -particle.w;
+				if (particle.w > 0.0 && 1.0 - particle.y < radius) particle.w = -particle.w;
+				if (particle.z < 0.0 && particle.x < radius) particle.z = -particle.z;
+				if (particle.z > 0.0 && 1.0 - particle.x < radius) particle.z = -particle.z;
+				float im0 = 1.0 / (1.33333 * 3.14159265 * pow(radius, 4.0));
+				for (int i=0; i<amount; i++)
+				{
+					if (i == int(id.x)) continue;                   
+					float4 other = buffer[i];
+					float b = buffer[resolution+id.x].w;                    
+					float2 d = other.xy - particle.xy;
+					if (length(d) < (radius + b))
+					{
+						float2 n = normalize(d);  	
+						float cv = dot(particle.zw - other.zw, n);
+						if (cv > 0.0)
+						{
+							float im1 = 1.0 / (1.33333 * 3.14159265 * pow(b, 4.0));                         
+							particle.zw += (n * (-2.0 * cv)) * (im0 / (im0 + im1));
+						}
+					} 
+				}
+				particle.xy += particle.zw * iTimeDelta * 0.3;
+				buffer[id.y*resolution+id.x] = particle;
+			}
+		}
+	}
+}
