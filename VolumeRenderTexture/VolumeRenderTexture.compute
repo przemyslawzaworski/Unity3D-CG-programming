@@ -1,0 +1,19 @@
+﻿#pragma kernel CSMain
+
+Texture3D<float4> VolumeReader; 
+RWTexture3D<float4> VolumeWriter;
+SamplerState _PointClamp;
+float3 Center;
+
+float circle(float3 p, float3 c, float r)
+{
+	return step(length(p-c)-r,0.0);
+}
+
+[numthreads(8,8,8)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+	float3 uv = float3((float)id.x/256.0,(float)id.y/256.0,(float)id.z/256.0);
+	float k = circle(uv,Center,0.03) + VolumeReader.SampleLevel(_PointClamp,uv,0);
+	VolumeWriter[id] = float4(k,k,k,k);
+}
