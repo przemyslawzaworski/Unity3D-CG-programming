@@ -76,3 +76,24 @@ black.shininess = 35.0;
 
 ////////////////////////////////////////////////////////////////////////////
 
+GLSL lessThan
+(https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/lessThan.xhtml)
+
+HLSL:
+float4 lessThan (float4 x, float4 y)
+{
+	return 1 - step(y, x);
+}
+
+////////////////////////////////////////////////////////////////////////////
+
+GLSL texelFetch:
+int px = int(fragCoord.x);
+float x = texelFetch(iChannel0, ivec2(px, 0), 0).x;
+
+HLSL:
+Texture2D<float4> _BufferA;
+float x = _BufferA.Load( int3(px, 0, 0) ).x;
+
+////////////////////////////////////////////////////////////////////////////
+
