@@ -1,0 +1,107 @@
+﻿//reference: https://github.com/potatoorgylt/rej-minicomputephysicsengine-spherecontroll
+
+#pragma kernel CSMain
+
+struct Sphere
+{
+	float3 position;
+	float3 velocity;
+	float radius;
+	float massInverse;
+};
+
+RWStructuredBuffer<Sphere> SphereBuffer;
+float3 WorldBoundsMin;
+float3 WorldBoundsMax;
+float3 ExternalForce;
+float DeltaTime;
+uint Count;
+float DragCoefficient;
+
+Sphere Move(Sphere e, float3 acceleration)
+{
+	e.position += e.velocity * DeltaTime + 0.5f * acceleration * DeltaTime * DeltaTime;
+	e.velocity += acceleration * DeltaTime;
+	return e;
+}
+
+Sphere WorldBoundsCollision(Sphere e, float3 bmin, float3 bmax, float restitution)
+{
+	if ((e.position.x - e.radius < bmin.x) && (e.velocity.x < 0) || (e.position.x + e.radius > bmax.x) && (e.velocity.x > 0))
+	{
+		e.velocity.x = -restitution * e.velocity.x;
+		e.position.x = clamp(e.position.x, bmin.x + e.radius, bmax.x + e.radius);
+	}
+
+	if ((e.position.y - e.radius < bmin.y) && (e.velocity.y < 0) || (e.position.y + e.radius > bmax.y) && (e.velocity.y > 0))
+	{
+		e.velocity.y = -restitution * e.velocity.y;
+		e.position.y = clamp(e.position.y, bmin.y + e.radius, bmax.y + e.radius);
+	}
+
+	if ((e.position.z - e.radius < bmin.z) && (e.velocity.z < 0) || (e.position.z + e.radius > bmax.z) && (e.velocity.z > 0))
+	{
+		e.velocity.z = -restitution * e.velocity.z;
+		e.position.z = clamp(e.position.z, bmin.z + e.radius, bmax.z + e.radius);
+	}
+
+	return e;
+}
+
+bool CheckSphereSphereCollision(float3 pos1, float r1, float3 pos2, float r2)
+{
+	float3 d = pos1 - pos2;
+	return dot(d, d) <= (r2 + r1) * (r2 + r1);
+}
+
+float SphereSphereDistance(float3 pos1, float r1, float3 pos2, float r2)
+{
+	float3 d = pos1 - pos2;
+	return sqrt(dot(d, d)) - r1 - r2;
+}
+
+Sphere Collision(Sphere e, Sphere other, float coeffOfRestitution, float coeffOfRepulsion)
+{
+	if (CheckSphereSphereCollision(e.position, e.radius, other.position, other.radius))
+	{
+		float3 relativeVelocity = other.velocity - e.velocity;
+		float3 normal = normalize(other.position - e.position);
+		float velocityProjection = dot(relativeVelocity, normal);
+		if (velocityProjection < 0)
+		{
+			float impScale = -(1.0f + coeffOfRestitution) * velocityProjection / (e.massInverse + other.massInverse);
+			float3 impulse = impScale * normal;
+			e.velocity -= e.massInverse * impulse;
+			e.position += normal * SphereSphereDistance(e.position, e.radius, other.position, other.radius) * coeffOfRepulsion;
+		}
+	}
+	return e;
+}
+
+float3 Drag(Sphere e, float coefOfDrag)
+{
+	float dragForce = 0.5 * coefOfDrag * dot(e.velocity, e.velocity) * 3.14 * e.radius * e.radius;
+	return dot(e.velocity, e.velocity) > 0 ? -normalize(e.velocity) * dragForce: float3(0,0,0);
+}
+
+[numthreads(64, 1, 1)]
+void CSMain(uint threadID : SV_DispatchThreadID)
+{
+	float coeffOfRestitution = 0.5;
+	float coeffOfRepulsion = 0.25;
+	if (threadID >= Count)
+		return;
+	Sphere e = SphereBuffer[threadID.x];
+	float3 acceleration = ExternalForce;
+	acceleration += Drag(e, DragCoefficient);
+	e = Move(e, acceleration);
+	e = WorldBoundsCollision(e, WorldBoundsMin, WorldBoundsMax, coeffOfRestitution);
+	for (uint i = 0; i < Count; ++i)
+	{
+		if (i == threadID)
+			continue;
+		Sphere other = SphereBuffer[i];
+		e = Collision(e, other, coeffOfRestitution, coeffOfRepulsion);
+	}
+	SphereBuffer[threadID] = e;
+}
