@@ -1,4 +1,4 @@
-Shader "Image Compression"
+﻿Shader "Image Compression"
 {
 	SubShader
 	{

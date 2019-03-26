@@ -1,4 +1,4 @@
-// Usage: Windows / Rendering / Lighting Settings -> Environment / Skybox Material
+﻿// Usage: Windows / Rendering / Lighting Settings -> Environment / Skybox Material
 // Original reference: 
 // https://www.scratchapixel.com/lessons/procedural-generation-virtual-worlds/simulating-sky/simulating-colors-of-the-sky
 
