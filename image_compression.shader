@@ -1,7 +1,3 @@
-﻿// Convert image to GLSL : https://github.com/rkibria/img2shadertoy
-// Translated from GLSL to HLSL by Przemyslaw Zaworski
-// Image from https://twitter.com/_degenerals
-
 Shader "Image Compression"
 {
 	SubShader
@@ -9,15 +5,12 @@ Shader "Image Compression"
 		Pass
 		{
 			CGPROGRAM
-			#pragma vertex vertex_shader
-			#pragma fragment pixel_shader
+			#pragma vertex VSMain
+			#pragma fragment PSMain
 			#pragma target 5.0
-			
-			typedef vector<int,2> ivec2;
-			typedef vector<float,2> vec2;
-			typedef vector<float,4> vec4;
-			
-			static const float2 bitmap_size = float2(128,128);
+
+			static const float2 size = float2(128,128);
+		
 			static const int palette[16] =
 			{
 				0x00121413,0x00171a18,0x001c1e1c,0x00212321,
@@ -25,7 +18,6 @@ Shader "Image Compression"
 				0x005b5e5c,0x006c6f6e,0x007f8280,0x00909392,
 				0x00a1a4a3,0x00b1b5b3,0x00c2c6c4,0x00d6d9d8
 			};
-			static const int longs_per_line = 16;
 
 			static const int bitmap[2048] = 
 			{
@@ -159,47 +151,20 @@ Shader "Image Compression"
 				0x11111111, 0x22222122, 0x32232222, 0x33333323, 0x33333333, 0x44433444, 0x44444444, 0x44444445, 0x44444344, 0x44444444, 0x44444444, 0x33443344, 0x22233333, 0x21222112, 0x11111111, 0x00111111
 			};
 
-			int getPaletteIndexXY( in ivec2 f)
-			{
-				int palette_index = 0;
-				if( f.x >= 0 && f.y >= 0 && f.x < int( bitmap_size.x ) && f.y < int( bitmap_size.y ) )
-				{
-					int line_index = f.y * longs_per_line;
-					int long_index = line_index + ( f.x >> 3 );
-					int bitmap_long = bitmap[ long_index ];
-					int nibble_index = f.x & 0x07;
-					palette_index = ( bitmap_long >> ( nibble_index << 2 ) ) & 0xf;
-				}
-				return palette_index;
-			}
-
-			int getPaletteIndex( in vec2 uv )
-			{
-				int palette_index = 0;
-				ivec2 fetch_pos = ivec2( uv * bitmap_size );
-				palette_index = getPaletteIndexXY( fetch_pos );
-				return palette_index;
-			}
-
-			vec4 getColorFromPalette( in int palette_index )
-			{
-				int i = palette[ palette_index ];
-				return vec4( float( i & 0xff ) / 255.0,float( ( i >> 8 ) & 0xff) / 255.0,float( ( i>> 16 ) & 0xff) / 255.0,0 );
-			}
-
-			vec4 getBitmapColor( in vec2 uv )
-			{
-				return getColorFromPalette( getPaletteIndex( uv ) );
-			}
-
-			void vertex_shader (inout float4 vertex:POSITION,inout float2 uv:TEXCOORD0)
+			void VSMain (inout float4 vertex:POSITION, inout float2 uv:TEXCOORD0)
 			{
 				vertex = UnityObjectToClipPos(vertex);
 			}
-			
-			vec4 pixel_shader (float4 vertex:POSITION,float2 uv:TEXCOORD0) : SV_TARGET
+
+			void PSMain (float4 vertex:POSITION, float2 uv:TEXCOORD0, out float4 pixel:SV_TARGET) 
 			{
-				return getBitmapColor(uv);
+				int3 f = int3( uv * size, 0 );
+				if( f.x >= 0 && f.y >= 0 && f.x < int(size.x) && f.y < int(size.y) )
+				{
+					f.z = (bitmap[(f.y << 4) + (f.x >> 3)] >> ((f.x & 0x07) << 2)) & 0xf;
+				}
+				int i = palette[f.z];
+				pixel = float4(float(i & 0xff) / 255, float((i >> 8) & 0xff) / 255, float((i >> 16) & 0xff) / 255, 0);
 			}
 			ENDCG
 		}
