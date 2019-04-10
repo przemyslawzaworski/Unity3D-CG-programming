@@ -26,7 +26,7 @@ public class save_material : MonoBehaviour
 	
 	void Start () 
 	{
-		render_texture = new CustomRenderTexture(resolution,resolution,0);
+		render_texture = new CustomRenderTexture(resolution,resolution,RenderTextureFormat.ARGB32);
 		render_texture.enableRandomWrite = true;
 		render_texture.Create();
 		render_texture.updateMode = CustomRenderTextureUpdateMode.Realtime;

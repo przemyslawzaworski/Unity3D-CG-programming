@@ -7,6 +7,7 @@ Shader "Unlit_Geometry_Shader"
 		{
 			Cull Off
 			CGPROGRAM
+			#define UNITY_SHADER_NO_UPGRADE 1
 			#pragma target 4.0
 			#pragma vertex vertex_shader
 			#pragma geometry geometry_shader
@@ -20,7 +21,7 @@ Shader "Unlit_Geometry_Shader"
 			custom_type vertex_shader(float4 vertex:POSITION)
 			{
 				custom_type vs ;
-				vs.pos = mul(_Object2World, vertex);
+				vs.pos = mul(unity_ObjectToWorld, vertex);
 				return vs;
 			}
 
@@ -36,7 +37,7 @@ Shader "Unlit_Geometry_Shader"
 				vertices[3] = float4(input[0].pos.xyz + delta.xyx, 1.0f);
 				vertices[4] = float4(input[0].pos.xyz + delta.xyy, 1.0f);
 				vertices[5] = float4(input[0].pos.xyz + delta.yyx, 1.0f);
-				float4x4 m = mul(UNITY_MATRIX_MVP, _World2Object);			
+				float4x4 m = mul(UNITY_MATRIX_MVP, unity_WorldToObject);			
 				for (int i=0;i<6;i++)
 				{
 					gs.pos = mul(m, vertices[i]);
