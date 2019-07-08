@@ -1,0 +1,6 @@
+Simple example of NVIDIA RTX Mesh Shader working with Unity OpenGL 4.5;
+Enable OpenGL in Unity3D -> set -force-glcore parameter to editor executable, for instance: "C:\Program Files\Unity\Editor\Unity.exe" -force-glcore 
+Compile MeshShaderPlugin.cpp with Visual Studio x64 command line:  cl.exe /LD MeshShaderPlugin.cpp opengl32.lib
+Copy compiled DLL file to Assets/Plugins, reload project and include MeshShaderPlugin.cs to camera. Play.
+You should see a triangle coloured by barycentric coordinates.
+More info: https://devblogs.nvidia.com/introduction-turing-mesh-shaders/
