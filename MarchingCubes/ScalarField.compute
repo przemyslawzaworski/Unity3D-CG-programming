@@ -1,0 +1,61 @@
+﻿#pragma kernel CSMain
+
+RWTexture3D<float2> _VolumeTexture;
+int _Resolution;
+
+float Map( float3 p )  // 3D fractal
+{
+	float3 w = p;
+	float m = dot(w,w);
+	float dz = 1.0; 
+	for( int i=0; i<3; i++ )
+	{
+		float m2 = m*m;
+		float m4 = m2*m2;
+		dz = 8.0*sqrt(m4*m2*m)*dz + 1.0;
+		float x = w.x; float x2 = x*x; float x4 = x2*x2;
+		float y = w.y; float y2 = y*y; float y4 = y2*y2;
+		float z = w.z; float z2 = z*z; float z4 = z2*z2;
+		float k3 = x2 + z2;
+		float k2 = rsqrt( k3*k3*k3*k3*k3*k3*k3 );
+		float k1 = x4 + y4 + z4 - 6.0*y2*z2 - 6.0*x2*y2 + 2.0*z2*x2;
+		float k4 = x2 - y2 + z2;
+		w.x = p.x +  64.0*x*y*z*(x2-z2)*k4*(x4-6.0*x2*z2+z4)*k1*k2;
+		w.y = p.y + -16.0*y2*k3*k4*k4 + k1*k1;
+		w.z = p.z +  -8.0*y*k4*(x4*x4 - 28.0*x4*x2*z2+70.0*x4*z4-28.0*x2*z2*z4+z4*z4)*k1*k2;
+		m = dot(w,w);
+		if( m > 256.0 ) break;
+	}
+	return 0.25*log(m)*sqrt(m)/dz;
+}
+
+float3 NormalVector( float3 p )
+{
+	float3 e = float3(0.001, 0.0, 0.0);
+	return normalize( float3(Map(p+e.xyy).x - Map(p-e.xyy).x, Map(p+e.yxy).x - Map(p-e.yxy).x, Map(p+e.yyx).x - Map(p-e.yyx).x ) );
+}
+
+float AmbientOcclusion( float3 pos, float3 nor )
+{
+	float ao = 0.0;
+	float sca = 1.0;
+	for( int i=0; i<8; i++ )
+	{
+		float h = 0.001 + 0.5*pow(float(i)/8.0, 1.5);
+		float d = Map( pos + h*nor ).x;
+		ao += -(d-h)*sca;
+		sca *= 0.95;
+	}
+	return clamp( 1.0 - 0.8*ao, 0.0, 1.0 );
+}
+
+[numthreads(8,8,8)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+	float3 uv = float3((float)id.x/_Resolution, (float)id.y/_Resolution, (float)id.z/_Resolution);
+	float3 position = 3.0 * (uv - float3(0.5, 0.5, 0.5));
+	float3 normal = NormalVector(position);
+	float color = AmbientOcclusion(position, normal);
+	float scalarField = step(Map(position), 0.0);
+	_VolumeTexture[id] = float2(scalarField, color);  
+}
