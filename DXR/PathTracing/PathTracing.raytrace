@@ -1,0 +1,51 @@
+﻿#pragma max_recursion_depth 2
+
+RaytracingAccelerationStructure  _AccelerationStructure;
+RWTexture2D<float4> _RenderTarget;
+float4 _AmbientColor;
+float4x4 _Frustum;
+float3 _WorldSpaceCameraPos;
+int _Frame;
+
+struct RayPayload 
+{
+	float3 color;
+	uint seed;
+	uint depth;
+};
+
+uint Hash(uint2 p)
+{
+	p = 1103515245U*((p >> 1U)^(p.yx));
+	uint h32 = 1103515245U*((p.x)^(p.y>>3U));
+	return h32^(h32 >> 16);
+}
+
+float Random(inout uint seed)
+{
+	seed = 1664525u * seed + 1013904223u;
+	return float(seed & 0x00FFFFFF) / float(0x01000000);
+}
+
+[shader("raygeneration")]
+void RayGenerationShader()
+{
+	uint2 threadID = DispatchRaysIndex().xy;
+	uint2 threadDim = DispatchRaysDimensions().xy;
+	uint seed = Hash(uint2(threadID.x + threadID.y * threadDim.x, _Frame));
+	float2 uv = ((float2)threadID + float2(Random(seed), Random(seed))) / (float2)threadDim;
+	float3 top = lerp(_Frustum[0].xyz, _Frustum[1].xyz, uv.x);
+	float3 bottom = lerp(_Frustum[2].xyz, _Frustum[3].xyz, uv.x);
+	float3 rayOrigin = _WorldSpaceCameraPos;
+	float3 rayDirection = normalize(lerp(bottom, top, uv.y));
+	RayDesc ray = {rayOrigin, 0, rayDirection, 100};
+	RayPayload payload = {float3(0.0, 0.0, 0.0), seed, 0};
+	TraceRay(_AccelerationStructure, 0, 0x0f, 0, 1, 0, ray, payload); 
+	_RenderTarget[threadID] = float4(payload.color, 1.0);
+}
+
+[shader("miss")]
+void MissShader(inout RayPayload payload : SV_RayPayload)
+{
+	payload.color = _AmbientColor;
+}
