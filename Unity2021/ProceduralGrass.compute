@@ -1,0 +1,100 @@
+#pragma kernel CSMain
+
+RWByteAddressBuffer _VertexBuffer;
+RWByteAddressBuffer _NormalBuffer;
+RWByteAddressBuffer _TexcoordBuffer;
+int _TriangleCount;
+float _Time;
+
+struct Vertex
+{
+	float3 position;
+	float2 texcoord;
+};
+
+void Store2 (RWByteAddressBuffer buffer, int index, float2 v)
+{
+	uint2 data = asuint(v);
+	buffer.Store2((index*3)<<2, data);
+}
+
+void Store3 (RWByteAddressBuffer buffer, int index, float3 v)
+{
+	uint3 data = asuint(v);
+	buffer.Store3((index*3) << 2, data);
+}
+
+float Mod (float x, float y)
+{
+	return x - y * floor(x/y);
+} 
+
+float3x3 RotationY (float y) 
+{
+	return float3x3(cos(y),0.0,-sin(y), 0.0,1.0,0.0, sin(y),0.0,cos(y));
+}
+
+float Hash (float p)
+{
+	p = frac(p * .1031);
+	p *= p + 33.33;
+	p *= p + p;
+	return frac(p);
+}
+
+Vertex GenerateQuad (uint id) // generate vertex for grid of quads, from 1D array index (branchless version)
+{
+	float instance = floor(id / 6.0); // index of current quad
+	float divider = sqrt(_TriangleCount * 0.5); // "divider" can be precalculated on the script side, for maximum performance
+	float3 center = float3(Mod(instance, divider), 0.0, floor(instance / divider)); // center of current quad
+	Vertex vertex;
+	float u = Mod(float(id), 2.0);
+	float v = sign(Mod(126.0, Mod(float(id), 6.0) + 6.0));
+	float3 localPos = float3(sign(u) - 0.5, sign(v) - 0.5, 0.0);
+	localPos.z += sign(v) * sin(_Time * Hash(instance + 123.0) * 0.5); // grass wind animation
+	vertex.position = mul(RotationY(radians(Hash(instance) * 180.0)), localPos) + center; // position with random rotation
+	vertex.texcoord = float2(u, v);
+	return vertex;
+}
+
+[numthreads(64, 1, 1)]
+void CSMain(uint3 threadID : SV_DispatchThreadID)
+{
+	uint id = threadID.x;
+	if ((int)id >= _TriangleCount) return;
+	uint idx1 = id * 3;
+	uint idx2 = id * 3 + 1;
+	uint idx3 = id * 3 + 2;	
+	Vertex v1 = GenerateQuad(idx1);
+	Vertex v2 = GenerateQuad(idx2);
+	Vertex v3 = GenerateQuad(idx3);	
+	float3 p1 = v1.position;
+	float3 p2 = v2.position;
+	float3 p3 = v3.position;
+	float2 uv1 = v1.texcoord;
+	float2 uv2 = v2.texcoord;
+	float2 uv3 = v3.texcoord;
+	float3 normal = normalize(cross(p2 - p1, p3 - p2));	
+	if (Mod(float(id), 2.0) == 1.0)
+	{
+		Store3(_VertexBuffer, idx1, p1); 
+		Store3(_VertexBuffer, idx2, p2);
+		Store3(_VertexBuffer, idx3, p3);
+		Store2(_TexcoordBuffer, idx1, uv1);
+		Store2(_TexcoordBuffer, idx2, uv2);
+		Store2(_TexcoordBuffer, idx3, uv3);		
+	}
+	else
+	{
+		Store3(_VertexBuffer, idx1, p2); 
+		Store3(_VertexBuffer, idx2, p1);
+		Store3(_VertexBuffer, idx3, p3);
+		Store2(_TexcoordBuffer, idx1, uv2);
+		Store2(_TexcoordBuffer, idx2, uv1);
+		Store2(_TexcoordBuffer, idx3, uv3);
+		normal = -normal;		
+	}
+	Store3(_NormalBuffer, idx1, normal);
+	Store3(_NormalBuffer, idx2, normal);
+	Store3(_NormalBuffer, idx3, normal);	
+}
