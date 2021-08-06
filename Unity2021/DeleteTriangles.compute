@@ -1,0 +1,82 @@
+#pragma kernel CSMain
+
+RWByteAddressBuffer _VertexBuffer, _IndexBuffer;
+int _Count, _Dimension;
+float3 _Origin, _Direction;
+float4x4 _LocalToWorldMatrix;
+
+// line (ray) vs triangle intersection test
+// ro = ray origin
+// rd = ray direction
+// a,b,c = triangle vertices coordinates
+bool IntersectTriangle(float3 ro, float3 rd, float3 a, float3 b, float3 c)
+{
+	float3 ab = b - a;
+	float3 ac = c - a;
+	float3 n = cross(rd, ac);
+	float det = dot(ab, n);
+	if (abs(det) < 1e-5) return false;
+	float invDet = 1.0 / det;
+	float3 k = ro - a;
+	float u = dot(k, n) * invDet;
+	if (u < 0.0 || u > 1.0) return false;
+	float v = dot(rd, cross(k, ab)) * invDet;
+	if (v < 0.0 || u + v > 1.0) return false;
+	return true;
+}
+
+// encode two 16-bit unsigned numbers to one 32-bit unsigned number
+uint AsUint32 (uint a, uint b)
+{
+	return (a << 16) | b;
+}
+
+// decode one 32-bit unsigned number to two 16-bit unsigned numbers
+uint2 AsUint16 (uint a)
+{
+	uint x = a >> 16;
+	uint y = a & 0xFFFF;
+	return uint2(x, y);
+}
+
+// modulo division
+float Mod (float x, float y)
+{
+	return x - y * floor(x/y);
+}
+
+[numthreads(64,1,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+	if (id.x >= (uint)_Count) return;
+	uint2 src = _IndexBuffer.Load2(id.x << 2);
+	uint2 a = AsUint16 (src.x);
+	uint2 b = AsUint16 (src.y);
+	float remainder = Mod(float(id.x), 3.0);
+	if (remainder == 0.0)
+	{
+		float3 localPosA = asfloat(_VertexBuffer.Load3((a.x * _Dimension) << 2));
+		float3 localPosB = asfloat(_VertexBuffer.Load3((a.y * _Dimension) << 2));
+		float3 localPosC = asfloat(_VertexBuffer.Load3((b.y * _Dimension) << 2));
+		float3 worldPosA = mul(_LocalToWorldMatrix, float4(localPosA, 1.0)).xyz;
+		float3 worldPosB = mul(_LocalToWorldMatrix, float4(localPosB, 1.0)).xyz;
+		float3 worldPosC = mul(_LocalToWorldMatrix, float4(localPosC, 1.0)).xyz;
+		if (IntersectTriangle(_Origin, _Direction, worldPosA, worldPosB, worldPosC))
+		{
+			_IndexBuffer.Store2(id.x << 2, uint2(0u, AsUint32(b.x, 0u)));	
+		}
+	}
+	else if (remainder == 1.0)
+	{
+		float3 localPosA = asfloat(_VertexBuffer.Load3((a.x * _Dimension) << 2));
+		float3 localPosB = asfloat(_VertexBuffer.Load3((b.x * _Dimension) << 2));
+		float3 localPosC = asfloat(_VertexBuffer.Load3((b.y * _Dimension) << 2));
+		float3 worldPosA = mul(_LocalToWorldMatrix, float4(localPosA, 1.0)).xyz;
+		float3 worldPosB = mul(_LocalToWorldMatrix, float4(localPosB, 1.0)).xyz;
+		float3 worldPosC = mul(_LocalToWorldMatrix, float4(localPosC, 1.0)).xyz;
+		if (IntersectTriangle(_Origin, _Direction, worldPosA, worldPosB, worldPosC))
+		{
+			_IndexBuffer.Store2(id.x << 2, uint2(AsUint32(0, a.y), 0u));
+		}
+	}
+}
