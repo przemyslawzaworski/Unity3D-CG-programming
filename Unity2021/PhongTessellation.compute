@@ -1,0 +1,80 @@
+#pragma kernel CSMain
+
+ByteAddressBuffer  _ComputeBuffer;
+RWByteAddressBuffer _GraphicsBuffer;
+int _TessellationFactor, _VertexCount;
+float _Phong;
+
+void Tessellation (uint id, out float3 position, out float3 normal, out float2 texcoord)
+{
+	uint subtriangles = (_TessellationFactor * _TessellationFactor);
+	float triangleID = float (( id / 3 ) % subtriangles);
+	float row = floor (sqrt( triangleID ));
+	uint column = triangleID - ( row * row );
+	float incuv = 1.0 / _TessellationFactor;
+	float u = ( 1.0 + row ) / _TessellationFactor;
+	float v = incuv * floor (float(column) * 0.5);
+	u -= v;
+	float w = 1.0 - u - v;
+	uint address = id / (3u * subtriangles) * 3u;
+	float3 p1 = asfloat(_ComputeBuffer.Load4(((address + 0) * 9) << 2)).xyz;
+	float3 p2 = asfloat(_ComputeBuffer.Load4(((address + 1) * 9) << 2)).xyz;
+	float3 p3 = asfloat(_ComputeBuffer.Load4(((address + 2) * 9) << 2)).xyz;
+	float3 n1 = asfloat(_ComputeBuffer.Load3(((address + 0) * 9) + 4 << 2));
+	float3 n2 = asfloat(_ComputeBuffer.Load3(((address + 1) * 9) + 4 << 2));
+	float3 n3 = asfloat(_ComputeBuffer.Load3(((address + 2) * 9) + 4 << 2));
+	float2 t1 = asfloat(_ComputeBuffer.Load2(((address + 0) * 9) + 7 << 2));
+	float2 t2 = asfloat(_ComputeBuffer.Load2(((address + 1) * 9) + 7 << 2));
+	float2 t3 = asfloat(_ComputeBuffer.Load2(((address + 2) * 9) + 7 << 2));
+	uint vertexID = ((id / 3u) / subtriangles) * 3u + (id % 3u);
+	switch(vertexID % 3)
+	{
+		case 0u:
+			if ((column & 1u) != 0)
+			{
+				v += incuv, u -= incuv;
+			}
+			break;
+		case 1u:
+			if ((column & 1u) == 0)
+			{
+				v += incuv, u -= incuv;
+			}
+			else
+			{
+				v += incuv, u -= incuv;
+				w += incuv, u -= incuv;
+			}
+			break;
+		case 2u:
+			if ((column & 1u) == 0)
+			{
+				u -= incuv, w += incuv;
+			}
+			else 
+			{
+				w += incuv, u -= incuv;
+			}
+			break;
+	}
+	normal = float3(u * n1 + v * n2 + w * n3);
+	texcoord = float2(u * t1 + v * t2 + w * t3);
+	float3 location = float3(u * p1 + v * p2 + w * p3);
+	float3 d1 = location - n1 * (dot(location, n1) - dot(p1, n1));
+	float3 d2 = location - n2 * (dot(location, n2) - dot(p2, n2));
+	float3 d3 = location - n3 * (dot(location, n3) - dot(p3, n3));
+	position = _Phong * (d1 * u + d2 * v + d3 * w) + (1.0 - _Phong) * location;
+}
+
+[numthreads(64, 1, 1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+	if ((int)id.x >= (_VertexCount)) return;
+	float3 position = 0;
+	float3 normal = 0;
+	float2 texcoord = 0;
+	Tessellation(id.x, position, normal, texcoord);
+	_GraphicsBuffer.Store3((id.x * 8) << 2, asuint(position));
+	_GraphicsBuffer.Store3((id.x * 8 + 3) << 2, asuint(normal));
+	_GraphicsBuffer.Store2((id.x * 8 + 6) << 2, asuint(texcoord));
+}
