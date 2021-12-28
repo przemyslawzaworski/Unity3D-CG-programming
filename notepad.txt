@@ -106,3 +106,34 @@ float inverse_smoothstep( float x )
 
 ////////////////////////////////////////////////////////////////////////////
 
+Pack float4 RGBA (floats between 0.0 and 1.0) into single float, and unpack:
+
+float DecodeFloatRGBA( float4 enc )
+{
+	uint r = (uint)(enc.x * 255);
+	uint g = (uint)(enc.y * 255);
+	uint b = (uint)(enc.z * 255);
+	uint a = (uint)(enc.w * 255);
+	uint v = (r << 24) + (g << 16) + (b << 8) + a;
+	return v / (256.0 * 256.0 * 256.0 * 256.0);
+}
+
+float4 EncodeFloatRGBA( float v )
+{
+	uint n = (uint)(v * 256.0 * 256.0 * 256.0 * 256.0);
+	uint r = (uint)(n / (256 * 256 * 256) % 256);
+	uint g = (uint)((n / (256 * 256)) % 256);
+	uint b = (uint)((n / (256)) % 256);
+	uint a = (uint)(n % 256);
+	return float4(r / 255.0, g / 255.0, b / 255.0, a / 255.0);
+}
+
+Note that 32-bit floats have 23 bits of precision so the 32-bit RGBA values will have leading or trailing 0 bits.
+Comparison, test code:
+
+float number = DecodeFloatRGBA( float4(0.235, 0.782, 0.531, 0.859) );
+float4 result = EncodeFloatRGBA( number );
+
+Result: 0.231 0.780 0.529 0.753
+
+////////////////////////////////////////////////////////////////////////////
