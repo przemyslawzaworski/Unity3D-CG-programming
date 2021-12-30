@@ -121,7 +121,7 @@
 						}
 						j1 = (rk >= -1) ? 1 : -rk;
 						j2 = (r - 1 <= pk) ? k - 1 : degree - r;
-						[loop] for (int j = j1; j <= j2; j++)
+						[unroll(degree)] for (int j = j1; j <= j2; j++)
 						{
 							a[s2][j] = (a[s1][j] - a[s1][j - 1]) / ndu[pk + 1][rk + j];
 							d += a[s2][j] * ndu[rk + j][pk];
@@ -146,12 +146,12 @@
 				}
 				int du = order < degree ? order : degree;
 				float3 result[order + 1];
-				for (int k = 0; k <= du; k++)
+				for (int h = 0; h <= du; h++)
 				{
 					for (int j = 0; j <= degree; j++)
 					{
 						float4 v = cps[span - degree + j];
-						result[k].xyz += v.xyz * ders[k][j];
+						result[h].xyz += v.xyz * ders[h][j];
 					}
 				}
 				return normalize(result[1]);

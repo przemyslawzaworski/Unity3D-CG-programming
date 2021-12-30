@@ -39,6 +39,6 @@ public class NurbsHair : MonoBehaviour
 		_Material.SetFloat("_HairWind", HairWind);
 		_Material.SetInt("_HairNormalsMode", (int)HairNormalsCalculation);
 		_Material.SetInt("_HairDebugNormals", System.Convert.ToInt32(HairDebugNormals));
-		Graphics.DrawProceduralNow(MeshTopology.Lines, HairQuality * HairCount, 1);
+		Graphics.DrawProcedural(MeshTopology.Lines, HairQuality * HairCount, 1);
 	}
 }
