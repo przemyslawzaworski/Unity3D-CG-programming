@@ -5,7 +5,7 @@ RWStructuredBuffer<double> _ComputeBuffer;
 double SquareRoot (double x) // Newton–Raphson method
 {
 	double n = 1.0;
-	[unroll(64)] for (int i = 1; i <= 64; i++) n -= (n * n - x) / (2.0 * n);
+	[unroll(12)] for (int i = 1; i <= 12; i++) n -= (n * n - x) / (2.0 * n);
 	return n;
 }
 
