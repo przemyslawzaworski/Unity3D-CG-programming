@@ -1,0 +1,16 @@
+﻿#pragma kernel CSMain
+
+RWStructuredBuffer<double> _ComputeBuffer;
+
+double SquareRoot (double x) // Newton–Raphson method
+{
+	double n = 1.0;
+	[unroll(64)] for (int i = 1; i <= 64; i++) n -= (n * n - x) / (2.0 * n);
+	return n;
+}
+
+[numthreads(1,1,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+	_ComputeBuffer[id.x] = SquareRoot (461.0);
+}
