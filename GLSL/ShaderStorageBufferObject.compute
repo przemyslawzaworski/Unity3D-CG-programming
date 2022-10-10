@@ -1,0 +1,57 @@
+#pragma kernel main
+
+GLSLPROGRAM
+#version 430
+layout (std430, binding = 0) writeonly buffer _StorageBuffer {float mainImage[];};
+layout (std140, binding = 0) uniform _UniformBuffer {float iTime; float iResolution;};
+layout (local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+float RGBAToFloat(vec4 c)
+{
+	int rgba = (int(c.w * 255.0) << 24) + (int(c.z * 255.0) << 16) + (int(c.y * 255.0) << 8) + int(c.x * 255.0);
+	return intBitsToFloat(rgba);
+}
+
+vec3 Hash(vec2 p )
+{
+	vec3 q = vec3(dot(p,vec2(127.1,311.7)), dot(p,vec2(269.5,183.3)), dot(p,vec2(419.2,371.9)));
+	return fract(sin(q)*43758.5453);
+}
+
+vec3 Noise(vec2 p)
+{
+	vec2 i = floor(p);
+	vec2 u = p - floor(p);
+	u = vec2(u.x*u.x*(3.0-2.0*u.x), u.y*u.y*(3.0-2.0*u.y));
+	vec3 res = mix(mix(Hash(i),Hash(vec2(i.x+1.0,i.y)),u.x),mix(Hash(vec2(i.x,i.y+1.0)),Hash(vec2(i.x+1.0,i.y+1.0)),u.x),u.y);
+	return res * res;
+}
+
+vec3 Fbm(vec2 p)
+{
+	vec3 v = vec3(0.0);
+	vec3 a = vec3(0.5);
+	for (int i = 0; i < 5; ++i)
+	{
+		v = v + a * Noise(p);
+		p = vec2((0.87 * p.x - 0.48 * p.y),(0.48 * p.x + 0.87 * p.y)) * 2.0;
+		a = a * vec3(0.5);
+	}
+	return v;
+}
+
+vec3 Pattern (vec2 p, float time)
+{
+	vec3 q = Fbm(vec2(p.x + 5.0, p.y + 1.0));
+	vec3 r = Fbm(vec2(p.x + 4.0 * q.x - time * 0.5, p.y + 4.0 * q.y + time * 0.3));
+	return Fbm(vec2(p.x + 8.0 * r.x, p.y + 8.0 * r.z));
+}
+
+void main()
+{
+	vec2 fragCoord = gl_GlobalInvocationID.xy;
+	vec2 uv = fragCoord.xy / vec2(iResolution);
+	vec4 fragColor = vec4(Pattern(uv, iTime), 1.0);
+	mainImage[int(iResolution) * gl_GlobalInvocationID.y + gl_GlobalInvocationID.x] = RGBAToFloat(clamp(vec4(fragColor.rgb, 1.0), vec4(0.0), vec4(1.0)));
+}
+ENDGLSL
