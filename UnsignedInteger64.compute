@@ -1,0 +1,11 @@
+#pragma kernel CSMain
+#pragma use_dxc
+
+StructuredBuffer<uint64_t> _Reader;
+RWStructuredBuffer<uint64_t> _Writer;
+
+[numthreads(1,1,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+	_Writer[id.x] = _Reader[id.x * 2] + _Reader[id.x * 2 + 1];
+}
