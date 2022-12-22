@@ -183,3 +183,39 @@ uint BitwiseAnd(uint x, uint y)
 }
 
 ////////////////////////////////////////////////////////////////////////////
+
+uint Hash(uint x) 
+{
+    x = ((x >> 16) ^ x) * 0x45d9f3bu;
+    x = ((x >> 16) ^ x) * 0x45d9f3bu;
+    x = ((x >> 16) ^ x);
+    return x;
+}
+
+uint Unhash(uint x) 
+{
+    x = ((x >> 16) ^ x) * 0x119de1f3u;
+    x = ((x >> 16) ^ x) * 0x119de1f3u;
+    x = ((x >> 16) ^ x);
+    return x;
+}
+
+uint RGBAToUint(float4 rgba) // encode normalized RGBA in range [0..1] to UInt32
+{ 
+    uint w = uint(rgba.w * 255.0) << 24u; 
+    uint z = uint(rgba.z * 255.0) << 16u;
+    uint y = uint(rgba.y * 255.0) << 8u;  
+    uint x = uint(rgba.x * 255.0);
+    return w + z + y + x;
+}
+
+float4 UintToRGBA(uint u)  // decode UInt32 to normalized RGBA in range [0..1]
+{
+    float w = float((u & 0xff000000u) >> 24) / 255.0;
+    float z = float((u & 0x00ff0000u) >> 16) / 255.0;
+    float y = float((u & 0x0000ff00u) >>  8) / 255.0;
+    float x = float((u & 0x000000ffu)      ) / 255.0;
+    return float4(x, y, z, w);
+}
+
+////////////////////////////////////////////////////////////////////////////
