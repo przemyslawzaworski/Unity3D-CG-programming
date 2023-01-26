@@ -1,0 +1,99 @@
+#pragma kernel ClearVoxelsKernel
+#pragma kernel BuildVoxelsKernel
+#pragma kernel JumpFloodKernel
+
+struct Seed
+{
+	float3 Location;
+	float3 Color;
+};
+
+Texture3D<float4> _Texture3D;
+RWTexture3D<float4> _RWTexture3D;
+RWStructuredBuffer<float3> _Voxels;
+RWStructuredBuffer<Seed> _Seeds;
+uint _Frame, _Resolution, _Animation;
+float _MaxSteps, _Time;
+
+float RGBAToFloat( float4 rgba )
+{
+	uint r = (uint)(rgba.x * 255);
+	uint g = (uint)(rgba.y * 255);
+	uint b = (uint)(rgba.z * 255);
+	uint a = (uint)(rgba.w * 255);
+	uint q = (r << 24) + (g << 16) + (b << 8) + a;
+	return q / (256.0 * 256.0 * 256.0 * 256.0);
+}
+
+float4 FloatToRGBA( float f )
+{
+	uint q = (uint)(f * 256.0 * 256.0 * 256.0 * 256.0);
+	uint r = (uint)(q / (256 * 256 * 256) % 256);
+	uint g = (uint)((q / (256 * 256)) % 256);
+	uint b = (uint)((q / (256)) % 256);
+	uint a = (uint)(q % 256);
+	return float4(r / 255.0, g / 255.0, b / 255.0, a / 255.0);
+}
+
+float4 JFA3D (float3 fragCoord, float level)
+{
+	float range = clamp(level - 1.0, 0.0, _MaxSteps);
+	float stepwidth = floor(exp2(_MaxSteps - range) + 0.5);
+	float bestDistance = 9999.0;
+	float3 bestCoord = float3(0.0, 0.0, 0.0);
+	float3 bestColor = float3(0.0, 0.0, 0.0);
+	for (int z = -1; z <= 1; ++z)
+	{
+		for (int y = -1; y <= 1; ++y) 
+		{
+			for (int x = -1; x <= 1; ++x) 
+			{
+				float3 neighbour = fragCoord + float3(x,y,z) * stepwidth;
+				float4 source = _Texture3D.Load(int4(neighbour, 0));
+				float3 seedCoord = source.xyz;
+				float3 seedColor = FloatToRGBA( source.w ).xyz;
+				float magnitude = length(seedCoord - fragCoord);
+				if ((seedCoord.x != 0.0 || seedCoord.y != 0.0 || seedCoord.z != 0.0) && magnitude < bestDistance)
+				{
+					bestDistance = magnitude;
+					bestCoord = seedCoord;
+					bestColor = seedColor;
+				}
+			}
+		}
+	}
+	return float4(bestCoord, RGBAToFloat(float4(bestColor, 1.0)));
+}
+
+[numthreads(8,8,8)]
+void ClearVoxelsKernel (uint3 id : SV_DispatchThreadID)
+{
+	uint instance = id.x * _Resolution * _Resolution + id.y * _Resolution + id.z;
+	_Voxels[instance] = float3(-1.0, -1.0, -1.0);
+}
+
+[numthreads(8,1,1)]
+void BuildVoxelsKernel (uint3 id : SV_DispatchThreadID)
+{
+	float factor = pow(_Resolution / 128.0, 4.0);
+	float angle = _Time * 3.0 + id.x;
+	_Seeds[id.x].Location += _Animation * float3(sin(angle), cos(angle), cos(1.0 - angle)) * factor;
+	_Seeds[id.x].Location = clamp(_Seeds[id.x].Location, (float3)0.0, (float3)(_Resolution - 1));
+	int3 location = int3(_Seeds[id.x].Location);
+	int instance = location.x * _Resolution * _Resolution + location.y * _Resolution + location.z;
+	_Voxels[instance] = _Seeds[id.x].Color;
+}
+
+[numthreads(8,8,8)]
+void JumpFloodKernel (uint3 id : SV_DispatchThreadID)
+{
+	float3 fragCoord = float3(id.x, id.y, id.z);
+	if (_Frame == 0u) 
+	{
+		uint instance = id.x * _Resolution * _Resolution + id.y * _Resolution + id.z;
+		float3 buffer = _Voxels[instance];
+		_RWTexture3D[id] = (buffer.x < 0.0) ? float4(0,0,0,1) : float4(fragCoord, RGBAToFloat(float4(buffer, 1.0)));
+		return;
+	}
+	_RWTexture3D[id] = JFA3D(fragCoord, floor(float(_Frame)));
+}
