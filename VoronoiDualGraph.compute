@@ -1,0 +1,114 @@
+#pragma kernel VoronoiKernel
+#pragma kernel DelaunayKernel
+
+struct Seed
+{
+	float2 Location;
+	float3 Color;
+};
+
+struct Triangle
+{
+	float2 A;
+	float2 B;
+	float2 C;
+};
+
+Texture2D<float4> _Texture2D;
+RWTexture2D<float4> _RWTexture2D;
+StructuredBuffer<Seed> _Seeds;
+AppendStructuredBuffer<Triangle> _Triangles;
+RWStructuredBuffer<uint> _CounterBuffer;
+uint _SeedsCount, _Resolution;
+
+float RGBAToFloat( float4 rgba )
+{
+	uint r = (uint)(rgba.x * 255.0);
+	uint g = (uint)(rgba.y * 255.0);
+	uint b = (uint)(rgba.z * 255.0);
+	uint a = (uint)(rgba.w * 255.0);
+	uint q = (r << 24) + (g << 16) + (b << 8) + a;
+	return float(q) / 4294967296.0;
+}
+
+float4 FloatToRGBA( float f )
+{
+	uint q = (uint)(f * 4294967296.0);
+	uint r = (uint)((q / 16777216u) % 256u);
+	uint g = (uint)((q / 65536u) % 256u);
+	uint b = (uint)((q / 256u) % 256u);
+	uint a = (uint)(q % 256u);
+	return float4(r, g, b, a) / 255.0;
+}
+
+float Circle (float2 p, float2 c, float r)
+{
+	return step(length(p - c) - r, 0.0);
+}
+
+[numthreads(8,8,1)]
+void VoronoiKernel (uint3 id : SV_DispatchThreadID)
+{
+	float2 fragCoord = float2(id.x, id.y);
+	float4 result = float4(9999.0, 0.0, 0.0, 0.0);
+	uint index = 0;
+	for (uint i = 0; i < _SeedsCount; i++)
+	{
+		float3 seed = float3(_Seeds[i].Location, RGBAToFloat(float4(_Seeds[i].Color, 1.0)));
+		float magnitude = distance(fragCoord.xy, seed.xy);
+		if (magnitude < result.x)
+		{
+			result = float4(magnitude, seed);
+			index = i;
+		}
+	}
+	float3 circle = Circle(fragCoord, result.yz, 1.0).xxx;
+	_RWTexture2D[id.xy] = float4(FloatToRGBA(result.w).rgb - circle, float(index));
+}
+
+[numthreads(8,8,1)]
+void DelaunayKernel (uint3 id : SV_DispatchThreadID)
+{
+	float2 fragCoord = float2(id.x, id.y);
+	float4 source = _Texture2D.Load(int3(fragCoord, 0));
+	float4 neighbours[9];
+	int cells[3] = {int(floor(source.a)), 0, 0};
+	int count = 1;
+	int index = 0;
+	float2 border = float2(0.0, _Resolution - 1u);
+	for (int y = -1; y <= 1; y++) // get all neighbour pixels
+	{
+		for (int x = -1; x <= 1; x++)
+		{
+			float2 coords = fragCoord + float2(x, y);
+			bool off = (coords.x < border.x || coords.x > border.y || coords.y < border.x || coords.y > border.y);
+			neighbours[index] = off ? source : _Texture2D.Load(int3(coords, 0));
+			index++;
+		}
+	}
+	for (int i = 1; i < 9; i++) // count distinct pixels in an array
+	{
+		int j = 0;
+		for (j = 0; j < i; j++)
+		{
+			if (all(abs(neighbours[i].rgb - neighbours[j].rgb) < 0.001))
+				break;
+		}
+		if (i == j)
+		{
+			cells[count] = int(floor(neighbours[i].a));
+			count += 1; 
+		}
+	}
+	if (count == 3) // if we found a contact point between three Voronoi cells, we can generate new triangle
+	{
+		Triangle polygon;
+		polygon.A = _Seeds[cells[0]].Location;
+		polygon.B = _Seeds[cells[1]].Location;
+		polygon.C = _Seeds[cells[2]].Location;
+		_Triangles.Append(polygon);
+		_CounterBuffer.IncrementCounter();
+		_CounterBuffer.IncrementCounter();
+		_CounterBuffer.IncrementCounter();
+	}
+}
