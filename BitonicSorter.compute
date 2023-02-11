@@ -1,0 +1,31 @@
+﻿#pragma kernel BitonicInit
+#pragma kernel BitonicMain
+
+#define THREAD_GROUP_SIZE 256
+#define MAX_PARALLEL_GROUPS 1024
+#define MAX_PARALLEL_THREADS (THREAD_GROUP_SIZE * MAX_PARALLEL_GROUPS)
+
+uint _Count;
+int _Block, _Dimension;
+RWStructuredBuffer<uint> _Keys;
+StructuredBuffer<float> _Values;
+
+[numthreads(THREAD_GROUP_SIZE, 1, 1)]
+void BitonicInit (uint3 threadID : SV_DispatchThreadID) 
+{
+	uint i = threadID.x + threadID.y * MAX_PARALLEL_THREADS;
+	if (i < _Count) _Keys[i] = i;
+}
+
+[numthreads(THREAD_GROUP_SIZE, 1, 1)]
+void BitonicMain (uint3 threadID : SV_DispatchThreadID) 
+{
+	uint x = threadID.x + threadID.y * MAX_PARALLEL_THREADS;
+	uint y = x ^ _Block;
+	if (y < x || x >= _Count) return;
+	uint a = _Keys[x];
+	uint b = _Keys[y];
+	bool shift = ((_Values[a] - _Values[b]) * ((x & _Dimension) == 0 ? 1 : -1)) > 0;
+	_Keys[x] = shift ? b : a;
+	_Keys[y] = shift ? a : b;
+}
