@@ -1,0 +1,111 @@
+#pragma kernel TextureGenerationKernel
+#pragma kernel MeshGenerationKernel
+
+struct Seed
+{
+	float2 Location;
+	float3 Color;
+};
+
+struct Vertex
+{
+	int Cell;
+	float Angle;
+	float2 Location;
+};
+
+Texture2D<float4> _Texture2D;
+RWTexture2D<float4> _RWTexture2D;
+StructuredBuffer<Seed> _Seeds;
+AppendStructuredBuffer<Vertex> _Vertices;
+int _SeedsCount, _Resolution;
+float _Time;
+
+float RGBAToFloat( float4 rgba )
+{
+	uint r = (uint)(rgba.x * 255.0);
+	uint g = (uint)(rgba.y * 255.0);
+	uint b = (uint)(rgba.z * 255.0);
+	uint a = (uint)(rgba.w * 255.0);
+	uint q = (r << 24) + (g << 16) + (b << 8) + a;
+	return float(q) / 4294967296.0;
+}
+
+float4 FloatToRGBA( float f )
+{
+	uint q = (uint)(f * 4294967296.0);
+	uint r = (uint)((q / 16777216u) % 256u);
+	uint g = (uint)((q / 65536u) % 256u);
+	uint b = (uint)((q / 256u) % 256u);
+	uint a = (uint)(q % 256u);
+	return float4(r, g, b, a) / 255.0;
+}
+
+float Circle (float2 p, float2 c, float r)
+{
+	return step(length(p - c) - r, 0.0);
+}
+
+float GetAngleFromCoordinates (float2 p)
+{
+	return atan2(p.y, p.x) * 360.0 / (3.14159266 * 2.0);
+}
+
+[numthreads(8,8,1)]
+void TextureGenerationKernel (uint3 id : SV_DispatchThreadID)
+{
+	float2 fragCoord = float2(id.x, id.y);
+	float4 result = float4(9999.0, 0.0, 0.0, 0.0);
+	uint index = 0;
+	for (int i = 0; i < _SeedsCount; i++)
+	{
+		float3 seed = float3(_Seeds[i].Location, RGBAToFloat(float4(_Seeds[i].Color, 1.0)));
+		float magnitude = distance(fragCoord.xy, seed.xy);
+		if (magnitude < result.x)
+		{
+			result = float4(magnitude, seed);
+			index = i;
+		}
+	}
+	float3 circle = Circle(fragCoord, result.yz, 1.0).xxx;
+	_RWTexture2D[id.xy] = float4(FloatToRGBA(result.w).rgb - circle, float(index)); 
+}
+
+[numthreads(8,8,1)]
+void MeshGenerationKernel (uint3 id : SV_DispatchThreadID)
+{
+	float2 fragCoord = float2(id.x, id.y);
+	float4 source = _Texture2D.Load(int3(fragCoord, 0));
+	float3 neighbours[9];
+	int count = 1;
+	int index = 0;
+	float2 border = float2(0.0, _Resolution - 1u);
+	for (int y = -1; y <= 1; y++) // get all neighbour pixels
+	{
+		for (int x = -1; x <= 1; x++) 
+		{
+			float2 coords = fragCoord + float2(x, y);
+			if ((coords.x < border.x || coords.x > border.y) && (coords.y < border.x || coords.y > border.y)) count++;
+			neighbours[index] = _Texture2D.Load(int3(coords, 0)).rgb;
+			index++;
+		}
+	}
+	for (int i = 1; i < 9; i++) // count distinct pixels in an array
+	{
+		int j = 0;
+		for (j = 0; j < i; j++)
+		{
+			if (all(abs(neighbours[i] - neighbours[j]) < 0.001))
+				break;
+		}
+		count += (i == j) ? 1 : 0;
+	}
+	if (count >= 3) // if we found a contact point between at least three Voronoi cells, we can generate new vertex
+	{
+		Vertex vertex;
+		vertex.Cell = int(floor(source.a));
+		vertex.Angle = GetAngleFromCoordinates(fragCoord - _Seeds[vertex.Cell].Location);
+		vertex.Location = fragCoord;
+		_Vertices.Append (vertex);
+	}
+}
