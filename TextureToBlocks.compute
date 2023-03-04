@@ -1,0 +1,68 @@
+#pragma kernel CSMain
+
+int _Resolution;
+float4 _WorldSpaceLightPos;
+RWTexture3D<float4> _RWTexture3D;
+
+float Hash (float2 n) 
+{
+	return frac(sin(dot(n, float2(13.9898, 4.1414))) * 43758.5453);
+}
+
+float Noise (float2 p)
+{
+	float size = 256.0;
+	float i = (1.0 / size);
+	float2 pixel = p * size + 0.5;
+	float2 f = frac(pixel);
+	float2 cell = floor(pixel) / size - (float2)(i / 2.0);
+	float a = Hash(cell + float2(0, 0));
+	float b = Hash(cell + float2(i, 0));
+	float c = Hash(cell + float2(0, i));
+	float d = Hash(cell + float2(i, i));
+	return lerp(lerp(a, b, f.x), lerp(c, d, f.x), f.y);
+}
+
+float Fbm (float2 p)
+{
+	float a = 0.5, b = 0.0, t = 0.0;
+	for (int i = 0; i < 7; i++)
+	{
+		b *= a; t *= a;
+		b += Noise(p);
+		t += 1.0; p /= 2.0;
+	}
+	return b /= t;
+}
+
+float Map (float3 p)
+{
+	float h = p.y - Fbm(p.xz * 0.5);
+	return all(clamp(p, 0, 1) == p) ? h : 1.0;
+}
+
+float Shadow (float3 ro, float3 rd, float mint, float maxt, float k)
+{
+	float t = mint;
+	float result = 1.0;
+	for (int i = 0; i < 128; ++i)
+	{
+		float h = Map(ro + rd * t);
+		if ( h < 0.001 ) return 0.0;
+		result = min(result, k * h / t);
+		t += h;
+		if (t > maxt) break;
+	}
+	return result;
+}
+
+[numthreads(8, 8, 8)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+	float3 uvw = float3(id.x, id.y, id.z) / float(_Resolution);
+	float sdf = Map(uvw);
+	float3 lightDir = normalize(_WorldSpaceLightPos.xyz);
+	float shadow = Shadow(uvw, lightDir, 0.0625, length(lightDir), 64.0);
+	float3 color = (uvw.y < 0.35) ? float3(0, 0, uvw.y) : uvw.yyy;
+	_RWTexture3D[id] = float4(color * shadow, sdf);
+}
