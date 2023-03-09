@@ -1,0 +1,21 @@
+#pragma kernel CSMain
+
+float _Offset;
+uint _Dimension, _VertexCount;
+float4x4 _LocalToWorldMatrix;
+RWStructuredBuffer<uint> _ComputeBuffer;
+ByteAddressBuffer _GraphicsBuffer;
+
+[numthreads(64, 1, 1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+	if (id.x >= _VertexCount) return;
+	float3 localPos = asfloat(_GraphicsBuffer.Load4((id.x * _Dimension) << 2)).xyz;
+	float3 worldPos = mul(_LocalToWorldMatrix, float4(localPos, 1.0)).xyz;
+	InterlockedMin(_ComputeBuffer[0], asuint(worldPos.x + _Offset));
+	InterlockedMin(_ComputeBuffer[1], asuint(worldPos.y + _Offset));
+	InterlockedMin(_ComputeBuffer[2], asuint(worldPos.z + _Offset));
+	InterlockedMax(_ComputeBuffer[3], asuint(worldPos.x + _Offset));
+	InterlockedMax(_ComputeBuffer[4], asuint(worldPos.y + _Offset));
+	InterlockedMax(_ComputeBuffer[5], asuint(worldPos.z + _Offset));
+}
