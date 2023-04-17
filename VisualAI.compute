@@ -1,0 +1,12 @@
+#pragma kernel CSMain
+
+Texture2DArray<float> _TextureArray;
+RWStructuredBuffer<uint> _CounterBuffer;
+
+[numthreads(8,8,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+	float src = _TextureArray.Load(int4(id.xy, 0, 0));
+	float dst = _TextureArray.Load(int4(id.xy, 1, 0));
+	if (src > dst) _CounterBuffer.IncrementCounter();
+}
