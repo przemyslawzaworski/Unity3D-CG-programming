@@ -1,3 +1,4 @@
+// Set custom Camera.fieldOfView, Camera.farClipPlane, and use calculated visibility percentages to define whether AI see the player.
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -5,9 +6,9 @@ using UnityEngine;
 public class VisualAI : MonoBehaviour
 {
 	[SerializeField] ComputeShader _ComputeShader;
-	[SerializeField] GameObject _Player;
+	[SerializeField] GameObject _Player; // _Player should have a separate layer
 	[SerializeField] GameObject[] _Enemies;
-	[SerializeField] int _Delay = 1;
+	[SerializeField] int _Delay = 2; // execute every n-frame for better performance
 
 	Camera[] _Cameras;
 	ComputeBuffer _CounterBuffer, _IndirectBuffer;
@@ -24,8 +25,8 @@ public class VisualAI : MonoBehaviour
 		{
 			_Cameras[i] = _Enemies[i].AddComponent<Camera>();
 			_Cameras[i].depthTextureMode = DepthTextureMode.Depth;
-			_Cameras[i].farClipPlane = 150f;
-			_Cameras[i].fieldOfView = 40f;
+			_Cameras[i].farClipPlane = 500f;
+			_Cameras[i].fieldOfView = 60f;
 			_Cameras[i].renderingPath = RenderingPath.DeferredShading;
 			_Cameras[i].enabled = false;
 		}
@@ -39,13 +40,12 @@ public class VisualAI : MonoBehaviour
 		_IndirectBuffer = new ComputeBuffer(1, sizeof(uint), ComputeBufferType.IndirectArguments);
 		_IndirectBuffer.SetData(_Data);
 		_GUIStyle.fontSize = 32;
-		_GUIStyle.normal.textColor = Color.white;
+		StartCoroutine(UpdateCoroutine());
 	}
 
-	void GetVisibilityPercentage()
+	void CalculateVisibilityPercentages()
 	{
 		int index = Time.frameCount % _Enemies.Length;
-		_Cameras[index].enabled = true;
 		_ComputeShader.SetBuffer(0, "_CounterBuffer", _CounterBuffer);
 		_CounterBuffer.SetCounterValue(0);
 		_Cameras[index].targetTexture = _RenderTexture;
@@ -57,18 +57,18 @@ public class VisualAI : MonoBehaviour
 		Graphics.CopyTexture(_RenderTexture, 0, 0, _TextureArray, 1, 0);
 		_ComputeShader.SetTexture(0, "_TextureArray", _TextureArray);
 		_ComputeShader.Dispatch(0, Mathf.Max(1, _RenderTexture.width / 8), Mathf.Max(1, _RenderTexture.height / 8), 1);
-		_Cameras[index].enabled = false;
 		ComputeBuffer.CopyCount(_CounterBuffer, _IndirectBuffer, 0);
 		_IndirectBuffer.GetData(_Data);
 		float pixels = (float) (_RenderTexture.width * _RenderTexture.height);
 		_Percents[index] = _Data[0] / pixels * 100f;
 	}
 
-	void Update()
+	IEnumerator UpdateCoroutine()
 	{
-		if (Time.frameCount % _Delay == 0)
+		while (true)
 		{
-			GetVisibilityPercentage();
+			yield return new WaitForEndOfFrame();
+			if (Time.frameCount % _Delay == 0) CalculateVisibilityPercentages();
 		}
 	}
 
