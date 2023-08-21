@@ -1,4 +1,4 @@
-﻿Shader "Bezier Surface"
+Shader "Bezier Surface"
 {
 	Subshader
 	{
@@ -12,7 +12,7 @@
 
 			uint _TessellationFactor;
 
-			static float3 ControlPoints[4][4] = 
+			static float3 ControlPoints[4][4] =
 			{
 				{float3(00.0, 00.0, 00.0), float3(10.0, 00.0, 00.0), float3(20.0, 00.0, 00.0),float3(30.0, 00.0, 00.0)},
 				{float3(00.0, 00.0, 10.0), float3(10.0, 10.0, 10.0), float3(20.0, 10.0, 10.0),float3(30.0, 00.0, 10.0)},
@@ -27,6 +27,8 @@
 				float y = a.y * (1.0 - t) * (1.0 - t) * (1.0 - t) + 3.0 * b.y * t * (1.0 - t) * (1.0 - t) + 3.0 * c.y * t * t * (1.0 - t) + d.y * t * t * t;
 				float z = a.z * (1.0 - t) * (1.0 - t) * (1.0 - t) + 3.0 * b.z * t * (1.0 - t) * (1.0 - t) + 3.0 * c.z * t * t * (1.0 - t) + d.z * t * t * t;
 				return float3 (x, y, z);
+				// It can be simplified to:
+				// return lerp(lerp(lerp(a, b, t), lerp(b, c, t), t), lerp(lerp(b, c, t), lerp(c, d, t), t), t);
 			}
 
 			float3 BezierPatch (float3 cp[4][4], float u, float v)
@@ -48,7 +50,7 @@
 				float3 e = BezierCurve (cp[0][0], cp[1][0], cp[2][0], cp[3][0], v);
 				float3 f = BezierCurve (cp[0][1], cp[1][1], cp[2][1], cp[3][1], v);
 				float3 g = BezierCurve (cp[0][2], cp[1][2], cp[2][2], cp[3][2], v);
-				float3 h = BezierCurve (cp[0][3], cp[1][3], cp[2][3], cp[3][3], v);	
+				float3 h = BezierCurve (cp[0][3], cp[1][3], cp[2][3], cp[3][3], v);  
 				float3 du = -3.0 * (1.0 - u) * (1.0 - u) * e + (3.0 * (1.0 - u) * (1.0 - u) - 6.0 * u * (1.0 - u)) * f + (6.0 * u * (1.0 - u) - 3.0 * u * u) * g + 3.0 * u * u * h;
 				return normalize(cross(dv, du));
 			}
@@ -78,12 +80,15 @@
 				ControlPoints[2][1].y = 40.0 * cos(_Time.g * 0.6);
 			}
 
+			// Generate surface of plane from grid of quads, then calculate final vertex position
 			float4 VSMain (uint vertexId : SV_VertexID, out float3 normal : NORMAL, out float2 texcoord : TEXCOORD0) : SV_POSITION
 			{
 				Animation();
 				int instance = int(floor(vertexId / 6.0));
-				float x = sign(Mod(float(vertexId), 2.0));
-				float y = sign(Mod(126.0, Mod(float(vertexId), 6.0) + 6.0));
+				// float x = sign(Mod(float(vertexId), 2.0));
+				// float y = sign(Mod(126.0, Mod(float(vertexId), 6.0) + 6.0));
+				float x = sign(Mod(20.0, Mod(float(vertexId), 6.0) + 2.0));
+				float y = sign(Mod(18.0, Mod(float(vertexId), 6.0) + 2.0));
 				float u = (float(instance / _TessellationFactor) + x) / float(_TessellationFactor);
 				float v = (Mod(float(instance), float(_TessellationFactor)) + y) / float(_TessellationFactor);
 				float3 localPos = BezierPatch (ControlPoints, u, v);

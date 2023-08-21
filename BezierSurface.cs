@@ -1,5 +1,5 @@
-﻿using UnityEngine;
-
+using UnityEngine;
+ 
 public class BezierSurface : MonoBehaviour
 {
 	public Shader BezierSurfaceShader;
@@ -12,11 +12,11 @@ public class BezierSurface : MonoBehaviour
 		_Material = new Material(BezierSurfaceShader);
 	}
 
-	void OnRenderObject() 
+	void OnRenderObject()
 	{
 		_Material.SetInt("_TessellationFactor", TessellationFactor);
 		_Material.SetPass(0);
 		int vertexCount = TessellationFactor * TessellationFactor * 6;
-		Graphics.DrawProcedural(MeshTopology.Triangles, vertexCount, 1);
+		Graphics.DrawProceduralNow(MeshTopology.Triangles, vertexCount, 1);
 	}
 }
