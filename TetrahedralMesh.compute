@@ -1,0 +1,59 @@
+#pragma kernel CSMain
+
+RWStructuredBuffer<float4> _Vertices;
+float3 _Center;
+uint _VertexCount;
+
+bool RayTriangleIntersection (float3 ro, float3 rd, float3 a, float3 b, float3 c)
+{
+	float epsilon = 0.0000001f;
+	float3 ba = b - a;
+	float3 ca = c - a;
+	float3 h = cross(rd, ca);
+	float det = dot(ba, h);
+	if (det > -epsilon && det < epsilon) return false;
+	float f = 1.0f / det;
+	float3 s = ro - a;
+	float u = dot(s, h) * f;
+	if (u < 0.0f || u > 1.0f) return false;
+	float3 q = cross(s, ba);
+	float v = dot(rd, q) * f;
+	if (v < 0.0f || u + v > 1.0f) return false;
+	float t = dot(ca, q) * f;
+	return (t > epsilon);
+}
+
+float3 Hash(float p)
+{
+	float3 p3 = frac(p.xxx * float3(0.1031, 0.1030, 0.0973));
+	p3 += dot(p3, p3.yzx + 33.33);
+	return normalize(frac((p3.xxy + p3.yzz) * p3.zyx) * 2.0 - 1.0);
+}
+
+bool IsPointInsideMesh(uint id)
+{
+	float3 direction = Hash((float)id + 1e6f);
+	int intersections = 0;
+	for (uint i = 0; i < 4; i++)
+	{
+		float3 a = _Vertices[id * 12 + i * 3 + 0].xyz;
+		float3 b = _Vertices[id * 12 + i * 3 + 1].xyz;
+		float3 c = _Vertices[id * 12 + i * 3 + 2].xyz;
+		intersections += RayTriangleIntersection(_Center, direction, a, b, c) ? 1 : 0;
+	}
+	return (intersections % 2u == 1);
+}
+
+[numthreads(64,1,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+	if (id.x >= _VertexCount) return;
+	bool inside = IsPointInsideMesh(id.x);
+	if (inside)
+	{
+		for (int i = 0; i < 12; i++)
+		{
+			_Vertices[id.x * 12 + i].w = 0.0;
+		}
+	}
+}
