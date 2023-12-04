@@ -1,0 +1,91 @@
+#pragma kernel CSMain1
+#pragma kernel CSMain2
+#pragma kernel CSMain3
+#pragma kernel CSMain4
+#pragma kernel CSMain5
+#pragma kernel CSMain6
+
+RWStructuredBuffer<uint>  _ComputeBuffer1;
+RWStructuredBuffer<uint2> _ComputeBuffer2;
+RWStructuredBuffer<uint3> _ComputeBuffer3;
+uint _Size2, _Size3;
+
+uint Map3DTo1D(uint3 coords, uint size3)
+{
+	return uint(coords.z * size3 * size3 + coords.y * size3 + coords.x);
+}
+
+uint3 Map1DTo3D(uint coords, uint size3)
+{
+	return uint3(coords % size3, (coords / size3) % size3, coords / (size3 * size3));
+}
+
+uint Map2DTo1D(uint2 coords, uint size2)
+{
+	return uint(size2 * coords.y + coords.x);
+}
+
+uint2 Map1DTo2D(uint coords, uint size2)
+{
+	return uint2(coords % size2, coords / size2);
+}
+
+uint2 Map3DTo2D(uint3 coords, uint size3, uint size2)
+{
+	uint index = uint(coords.z * size3 * size3 + coords.y * size3 + coords.x);
+	return uint2(index % size2, index / size2);
+}
+
+uint3 Map2DTo3D(uint2 coords, uint size2, uint size3)
+{
+	uint index = uint(size2 * coords.y + coords.x);
+	return uint3(index % size3, (index / size3) % size3, index / (size3 * size3));
+}
+
+[numthreads(8,1,1)]
+void CSMain1 (uint3 id : SV_DispatchThreadID)
+{
+	uint coords = Map3DTo1D(_ComputeBuffer3[id.x], _Size3);
+	_ComputeBuffer1[id.x] = coords;
+	_ComputeBuffer3[id.x] = Map1DTo3D(coords, _Size3);
+}
+
+[numthreads(8,1,1)]
+void CSMain2 (uint3 id : SV_DispatchThreadID)
+{
+	uint3 coords = Map1DTo3D(_ComputeBuffer1[id.x], _Size3);
+	_ComputeBuffer3[id.x] = coords;
+	_ComputeBuffer1[id.x] = Map3DTo1D(coords, _Size3);
+}
+
+[numthreads(8,1,1)]
+void CSMain3 (uint3 id : SV_DispatchThreadID)
+{
+	uint coords = Map2DTo1D(_ComputeBuffer2[id.x], _Size2);
+	_ComputeBuffer1[id.x] = coords;
+	_ComputeBuffer2[id.x] = Map1DTo2D(coords, _Size2);
+}
+
+[numthreads(8,1,1)]
+void CSMain4 (uint3 id : SV_DispatchThreadID)
+{
+	uint2 coords = Map1DTo2D(_ComputeBuffer1[id.x], _Size2);
+	_ComputeBuffer2[id.x] = coords;
+	_ComputeBuffer1[id.x] = Map2DTo1D(coords, _Size2);
+}
+
+[numthreads(8,1,1)]
+void CSMain5 (uint3 id : SV_DispatchThreadID)
+{
+	uint2 coords = Map3DTo2D(_ComputeBuffer3[id.x], _Size3, _Size2);
+	_ComputeBuffer2[id.x] = coords;
+	_ComputeBuffer3[id.x] = Map2DTo3D(coords, _Size2, _Size3);
+}
+
+[numthreads(8,1,1)]
+void CSMain6 (uint3 id : SV_DispatchThreadID)
+{
+	uint3 coords = Map2DTo3D(_ComputeBuffer2[id.x], _Size2, _Size3);
+	_ComputeBuffer3[id.x] = coords;
+	_ComputeBuffer2[id.x] = Map3DTo2D(coords, _Size3, _Size2);
+}
