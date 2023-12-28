@@ -1,0 +1,79 @@
+#pragma kernel CSMain
+
+ByteAddressBuffer _VertexBuffer, _IndexBuffer;
+int _Count, _Dimension;
+uint _IndexStart, _BaseVertex, _IndexFormat;
+float3 _Point;
+float4x4 _LocalToWorldMatrix;
+RWStructuredBuffer<float4> _ComputeBuffer;
+
+float3 ClosestPointOnTriangle(float3 p, float3 a, float3 b, float3 c)
+{
+	float3 ba = b - a;
+	float3 pa = p - a;
+	float3 cb = c - b;
+	float3 pb = p - b;
+	float3 ac = a - c;
+	float3 pc = p - c;
+	float3 nm = cross(ba, ac);
+	float3 q = cross(nm, pa);
+	float d = 1.0 / dot(nm, nm);
+	float u = d * dot(q, ac);
+	float v = d * dot(q, ba);
+	float w = 1.0 - u - v;
+	if (u < 0.0)
+	{
+		w = clamp(dot(pc, ac) / dot(ac, ac), 0.0, 1.0);
+		u = 0.0;
+		v = 1.0 - w;
+	}
+	else if (v < 0.0f)
+	{
+		u = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+		v = 0.0;
+		w = 1.0 - u;
+	}
+	else if (w < 0.0f)
+	{
+		v = clamp(dot(pb, cb) / dot(cb, cb), 0.0, 1.0);
+		w = 0.0;
+		u = 1.0 - v;
+	}
+	return u * b + v * c + w * a;
+}
+
+uint3 GetTriangleIndices16 (ByteAddressBuffer indexBuffer, uint primitiveIndex, uint indexStart, uint baseVertex)
+{
+	const uint offsetInBytes = (indexStart + primitiveIndex * 3) << 1;
+	const uint dwordAlignedOffset = offsetInBytes & ~3;
+	const uint2 fourIndices = indexBuffer.Load2(dwordAlignedOffset);
+	bool IsAligned = dwordAlignedOffset == offsetInBytes;
+	uint x = IsAligned ? fourIndices.x & 0xffff : (fourIndices.x >> 16) & 0xffff;
+	uint y = IsAligned ? (fourIndices.x >> 16) & 0xffff : fourIndices.y & 0xffff;
+	uint z = IsAligned ? fourIndices.y & 0xffff : (fourIndices.y >> 16) & 0xffff;
+	return uint3(x, y, z) + baseVertex.xxx;
+}
+
+uint3 GetTriangleIndices32 (ByteAddressBuffer indexBuffer, uint primitiveIndex, uint indexStart, uint baseVertex)
+{
+	const uint offsetInBytes = (indexStart + primitiveIndex * 3) << 2;
+	return indexBuffer.Load3(offsetInBytes) + baseVertex.xxx;
+}
+
+[numthreads(64,1,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+	if (id.x >= (uint)_Count) return;
+	uint3 indices = _IndexFormat == 16u ?
+		GetTriangleIndices16 (_IndexBuffer, id.x, _IndexStart, _BaseVertex):
+		GetTriangleIndices32 (_IndexBuffer, id.x, _IndexStart, _BaseVertex);
+	float3 localPosA = asfloat(_VertexBuffer.Load3((indices.x * _Dimension) << 2));
+	float3 localPosB = asfloat(_VertexBuffer.Load3((indices.y * _Dimension) << 2));
+	float3 localPosC = asfloat(_VertexBuffer.Load3((indices.z * _Dimension) << 2));
+	float3 worldPosA = mul(_LocalToWorldMatrix, float4(localPosA, 1.0)).xyz;
+	float3 worldPosB = mul(_LocalToWorldMatrix, float4(localPosB, 1.0)).xyz;
+	float3 worldPosC = mul(_LocalToWorldMatrix, float4(localPosC, 1.0)).xyz;
+	float3 closestPoint = ClosestPointOnTriangle(_Point, worldPosA, worldPosB, worldPosC);
+	float spread = distance(_Point, closestPoint);
+	_ComputeBuffer[id.x] = float4(closestPoint, spread);
+}
