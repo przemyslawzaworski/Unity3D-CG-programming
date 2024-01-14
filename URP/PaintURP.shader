@@ -1,3 +1,4 @@
+// Author: Przemyslaw Zaworski
 Shader "Paint URP"
 {
 	SubShader
@@ -11,11 +12,11 @@ Shader "Paint URP"
 			#pragma vertex VSMain
 			#pragma fragment PSMain
 
-			float _BrushRadius, _BrushPower;
+			float _BrushRadius, _BrushPower, _BrushMovement, _BrushForce, _BrushEnd;
 			float4 _BrushCenter, _BrushColor, _RayOrigin, _LastBrushCenter;
 			float4x4 _ModelMatrix;
 			Texture2D _RenderTexture, _ColorTexture;
-			SamplerState sampler_linear_clamp, sampler_point_clamp;
+			SamplerState sampler_point_clamp;
 
 			struct Attributes
 			{
@@ -50,6 +51,11 @@ Shader "Paint URP"
 				return length(pa - ba * h) - r;
 			}
 
+			float Subtraction(float d1, float d2)
+			{
+				return max(-d1, d2);
+			}
+
 			Interpolators VSMain (Attributes attributes)
 			{
 				Interpolators interpolators;
@@ -71,16 +77,21 @@ Shader "Paint URP"
 				float3 worldPos = interpolators.worldPos;
 				float2 uv = interpolators.uv;
 				float3 nd = normalize(interpolators.normal);
-				float3 ld = normalize(-(_BrushCenter.xyz - _RayOrigin.xyz));
-				bool isVisible = dot(ld, nd) >= 0.0;
+				float3 rd = normalize(-(_BrushCenter.xyz - _RayOrigin.xyz));
+				bool isVisible = dot(rd, nd) >= 0.0;
 				float capsule = Line(worldPos, _LastBrushCenter.xyz, _BrushCenter.xyz, _BrushRadius);
 				float sphere = Sphere(worldPos, _BrushCenter.xyz, _BrushRadius);
-				float paintBuffer = _RenderTexture.Sample(sampler_point_clamp, uv).r;
-				float3 colorBuffer = _ColorTexture.Sample(sampler_point_clamp, uv).rgb;
-				float sdf = smoothstep(0.01, -0.01, isVisible ? min(sphere, capsule) : 1e6) * _BrushPower;
-				float accumulation = min(sdf + paintBuffer, 1.0);
-				float3 color = lerp(colorBuffer, _BrushColor.xyz, sdf);
-				renderTargets.target0 = float4(accumulation, 0.0, 0.0, 0.0);
+				float paintTexture = _RenderTexture.Sample(sampler_point_clamp, uv).r;
+				float3 colorTexture = _ColorTexture.Sample(sampler_point_clamp, uv).rgb;
+				bool isMove = _BrushMovement > 0.5;
+				float sdf = isMove ? Subtraction(sphere, capsule) : sphere;
+				float opacity = isMove ? _BrushForce : _BrushPower;
+				float end = (_BrushEnd > 0.5) ? step(sphere, 0.0) * _BrushForce : 0.0;
+				float weight = step(isVisible ? sdf : 1e6, 0.0) * opacity + end;
+				float brush = step(isVisible ? sphere : 1e6, 0.0) * _BrushForce;
+				float accumulation = min(weight + paintTexture, 1.0);
+				float3 color = lerp(colorTexture, _BrushColor.xyz, weight);
+				renderTargets.target0 = float4(accumulation, brush, 0.0, 0.0);
 				renderTargets.target1 = float4(color, 0.0);
 				return renderTargets;
 			}

@@ -50,6 +50,8 @@ Shader "Paint URP Unlit"
 			TEXTURE2D(_ColorMap);
 			SAMPLER(sampler_ColorMap);
 
+			float4 _BrushColor;
+
 			Varyings VSMain(Attributes IN) 
 			{
 				Varyings OUT;
@@ -63,8 +65,8 @@ Shader "Paint URP Unlit"
 			{
 				float2 uv = IN.uv.xy;
 				float3 color = _ColorMap.Sample(sampler_ColorMap, uv).rgb;
-				float paint = _PaintMap.Sample(sampler_PaintMap, uv).r;
-				return float4(lerp(float3(0,0,0), color, paint), 1.0);
+				float2 paint = _PaintMap.Sample(sampler_PaintMap, uv).rg;
+				return float4(lerp(float3(0,0,0), color, paint.x) + paint.y * _BrushColor.rgb, 1.0);
 			}
 			ENDHLSL
 		}
