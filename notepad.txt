@@ -253,3 +253,14 @@ uint3 Map2DTo3D(uint2 coords, uint size2, uint size3)
 }
 
 ////////////////////////////////////////////////////////////////////////////
+
+// "from" and "to" must be normalized
+// https://docs.unity3d.com/ScriptReference/Quaternion.FromToRotation.html
+float4 QuaternionFromToRotation(float3 from, float3 to)
+{
+	float3 axis = normalize(cross(from, to));
+	float angle = 0.5 * acos(dot(from, to));
+	return float4(axis * sin(angle), cos(angle));
+}
+
+////////////////////////////////////////////////////////////////////////////
