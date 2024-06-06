@@ -15,7 +15,7 @@ Shader "MipmapLevel"
 			#pragma target 5.0
 
 			Texture2D _MainTex;
-			SamplerState sampler_MainTex;
+			SamplerState sampler_linear_repeat; // Isotropic LOD works only for point and linear filter
 			float4 _MainTex_TexelSize;
 			int _Mode;
 
@@ -39,13 +39,12 @@ Shader "MipmapLevel"
 				float3(0.5, 0.0, 0.0)   // Maroon
 			};
 
-			// https://stackoverflow.com/questions/24388346/how-to-access-automatic-mipmap-level-in-glsl-fragment-shader-texture
-			float MipmapLevel(float2 texcoord)
+			// https://microsoft.github.io/DirectX-Specs/d3d/archive/D3D11_3_FunctionalSpec.htm#7.18.11%20LOD%20Calculations
+			float MipmapLevelIsotropic(float2 uv, float2 resolution)
 			{
-				float2 dx = ddx(texcoord);
-				float2 dy = ddy(texcoord);
-				float delta = max(dot(dx,dx), dot(dy, dy));
-				return max(0.0, 0.5 * log2(delta));
+				float2 dx = ddx(uv) * resolution;
+				float2 dy = ddy(uv) * resolution;
+				return log2(max(length(dx), length(dy)));
 			}
 
 			float4 VSMain (float4 vertex : POSITION, inout float2 uv : TEXCOORD0) : SV_POSITION
@@ -56,9 +55,10 @@ Shader "MipmapLevel"
 			float4 PSMain (float4 vertex : SV_POSITION, float2 uv : TEXCOORD0) : SV_TARGET
 			{
 				float2 resolution = _MainTex_TexelSize.zw;
-				uint intrinsic = (uint) _MainTex.CalculateLevelOfDetail(sampler_MainTex, uv);
-				uint estimated = (uint) MipmapLevel(uv * resolution);
-				return (_Mode == 0) ? float4(Palette[intrinsic], 1.0) : float4(Palette[estimated], 1.0);
+				int intrinsic = (int) _MainTex.CalculateLevelOfDetailUnclamped(sampler_linear_repeat, uv);
+				int estimated = (int) MipmapLevelIsotropic(uv, resolution);
+				int index = (_Mode == 0) ? intrinsic : estimated;
+				return (index < 0) ? float4(0,0,0,1) : float4(Palette[(uint)index], 1.0);
 			}
 			ENDCG
 		}
