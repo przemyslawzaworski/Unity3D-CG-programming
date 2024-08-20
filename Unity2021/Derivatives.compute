@@ -1,0 +1,23 @@
+#pragma kernel CSMain
+#pragma require Int64BufferAtomics
+
+Texture2D _Reader;
+RWTexture2D<float4> _Writer;
+SamplerState _LinearRepeat;
+
+[numthreads(8,8,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+	uint width, height;
+	_Reader.GetDimensions(width, height);
+	float2 uv = float2(id.x / (float)width, id.y / (float)height);
+	float3 color = _Reader.Sample(_LinearRepeat, uv).rgb;
+	float grayscale = 0.299 * color.r + 0.587 * color.g + 0.114 * color.b;
+	float dx = ddx(grayscale * 5.0);
+	float dy = ddy(grayscale * 5.0);
+	float3 normal = normalize(float3(dx, dy, 1.0));
+	float3 result = (float3) 0.0;
+	result.xy = normal.xy * 0.5 + 0.5;
+	result.z = sqrt(1 - result.x * result.x - result.y * result.y);
+	_Writer[id.xy] = float4(result, 1.0);
+}
