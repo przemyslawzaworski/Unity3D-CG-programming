@@ -103,8 +103,6 @@ Shader "Volumetric Overcast Clouds"
 				float3 sunDirection = normalize(float3(0, 0, -1));
 				float sunAmount = max(dot(rayDirection, sunDirection), 0.0);
 				float3 sky = lerp(float3(0.0, 0.1, 0.4), float3(0.3, 0.6, 0.8), 1.0 - rayDirection.y);
-				sky += sunColor * min(pow(sunAmount, 1500.0) * 5.0, 1.0);
-				sky += sunColor * min(pow(sunAmount, 10.0) * 0.6, 1.0);
 				return sky;
 			}
 
@@ -121,7 +119,7 @@ Shader "Volumetric Overcast Clouds"
 
 			float4 Raymarching(Ray ray)
 			{
-				const int maxSteps = 50;
+				const int maxSteps = 128;
 				const float thickness = 90.0;
 				const float stepSize = thickness / float(maxSteps);
 				float3 rayProjection = ray.direction / ray.direction.y;
