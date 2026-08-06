@@ -86,7 +86,7 @@ Shader "Volumetric Overcast Clouds"
 			}
 
 			float FractalBrownianMotion(float3 position, float lacunarity, float amplitude, float gain) 
-			{   
+			{
 				float value = 0.0; 
 				for (int i = 0; i < 5; i++)
 				{
@@ -120,12 +120,16 @@ Shader "Volumetric Overcast Clouds"
 			float4 Raymarching(Ray ray)
 			{
 				const int maxSteps = 128;
-				const float thickness = 90.0;
+				const float cloudBaseHeight = 100.0;
+				const float cloudTopHeight  = 190.0;
+				const float thickness = cloudTopHeight - cloudBaseHeight;
+				if (ray.direction.y <= 0.0001) return float4(0.0, 0.0, 0.0, 0.0);
+				float distanceToCloudBase = (cloudBaseHeight - ray.origin.y) / ray.direction.y;
+				if (distanceToCloudBase < 0.0) return float4(0.0, 0.0, 0.0, 0.0);
+				float3 origin = ray.origin + ray.direction * distanceToCloudBase;
 				const float stepSize = thickness / float(maxSteps);
-				float3 rayProjection = ray.direction / ray.direction.y;
-				float3 rayStep = rayProjection * stepSize;
-				float alpha = dot(ray.direction, float3(0, 1, 0));
-				float3 origin = ray.origin + rayProjection * 100.0;
+				float3 rayStep = ray.direction * (stepSize / ray.direction.y);
+				float alpha = ray.direction.y;
 				Volume cloud;
 				cloud.origin = origin;
 				cloud.position = origin;
@@ -133,13 +137,13 @@ Shader "Volumetric Overcast Clouds"
 				cloud.absorption = 1.0;
 				cloud.transmittance = 1.0;
 				cloud.color = float3(0.0, 0.0, 0.0);
-				cloud.alpha = 0.0;			
-				for (int i = 0; i < maxSteps; i++) 
+				cloud.alpha = 0.0;
+				for (int i = 0; i < maxSteps; i++)
 				{
-					cloud.height = (cloud.position.y - cloud.origin.y) / thickness;
+					cloud.height = (cloud.position.y - cloudBaseHeight) / thickness;
 					float density = CloudDensity(cloud.position);
-					float stepTransmittance = exp(-cloud.absorption * density * stepSize);
-					cloud.transmittance *= exp(-cloud.absorption * density * stepSize);
+					float stepTransmittance =  exp(-cloud.absorption * density * stepSize);
+					cloud.transmittance *= stepTransmittance;
 					cloud.color += cloud.transmittance * exp(cloud.height) / 1.95 * density * stepSize;
 					cloud.alpha += (1.0 - stepTransmittance) * (1.0 - cloud.alpha);
 					cloud.position += rayStep;
